@@ -143,8 +143,8 @@ function AddFormBody({
   };
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-1 pb-2">
+    <div className="flex max-h-[85vh] min-h-0 flex-col overflow-y-auto">
+      <div className="space-y-4 px-1 pb-[calc(6rem+env(safe-area-inset-bottom))]">
         <div className="space-y-2">
           <Label>Tipo</Label>
           <Select value={typeKey} onValueChange={setTypeKey}>
@@ -216,7 +216,7 @@ function AddFormBody({
           </div>
         </div>
       </div>
-      <div className="mt-4 shrink-0 space-y-2 border-t border-border pt-4">
+      <div className="sticky bottom-0 z-10 mt-4 shrink-0 space-y-2 border-t border-border bg-white pt-4 pb-[env(safe-area-inset-bottom)]">
         <Button
           type="button"
           disabled={pending}
@@ -271,7 +271,7 @@ export function MaintenanceAddDrawer({
         repositionInputs={false}
       >
         {children ? <DrawerTrigger asChild>{children}</DrawerTrigger> : null}
-        <DrawerContent className="flex max-h-[90vh] flex-col overflow-hidden rounded-t-[2rem] border-t bg-white px-6 pb-[calc(2rem+env(safe-area-inset-bottom))]">
+        <DrawerContent className="flex h-[90vh] max-h-[90vh] flex-col overflow-hidden rounded-t-[2rem] border-t bg-white px-6 pb-[calc(2rem+env(safe-area-inset-bottom))]">
           <div className="mx-auto mt-2 h-1.5 w-12 rounded-full bg-muted" />
           <DrawerHeader className="px-0 pt-4 pb-2 text-left">
             <DrawerTitle className="text-xl font-bold">

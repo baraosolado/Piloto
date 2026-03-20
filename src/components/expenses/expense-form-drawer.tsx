@@ -325,8 +325,8 @@ function ExpenseFormBody({
   };
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <div className="min-h-0 flex-1 space-y-6 overflow-y-auto px-1 pb-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+    <div className="flex max-h-[85vh] min-h-0 flex-col overflow-y-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <div className="space-y-6 px-1 pb-[calc(6rem+env(safe-area-inset-bottom))]">
         <div className="space-y-3">
           <Label className={labelClass}>Categoria</Label>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
@@ -488,7 +488,7 @@ function ExpenseFormBody({
         ) : null}
       </div>
 
-      <div className="mt-4 shrink-0 space-y-3 border-t border-[#eeeeee] pt-4">
+      <div className="sticky bottom-0 z-10 mt-4 shrink-0 space-y-3 border-t border-[#eeeeee] bg-white pt-4 pb-[env(safe-area-inset-bottom)]">
         <Button
           type="button"
           disabled={pending}
@@ -578,7 +578,7 @@ export function ExpenseFormDrawer({
           {children ? (
             <DrawerTrigger asChild>{children}</DrawerTrigger>
           ) : null}
-          <DrawerContent className="flex max-h-[90vh] flex-col overflow-hidden rounded-t-[2rem] border-t bg-white px-6 pb-[calc(2rem+env(safe-area-inset-bottom))]">
+          <DrawerContent className="flex h-[90vh] max-h-[90vh] flex-col overflow-hidden rounded-t-[2rem] border-t bg-white px-6 pb-[calc(2rem+env(safe-area-inset-bottom))]">
             <div className="mx-auto mt-2 h-1.5 w-12 rounded-full bg-[#c6c6c6]/40" />
             <DrawerHeader className="px-0 pt-4 pb-2 text-left">
               <DrawerTitle className="text-2xl font-bold tracking-tight">
