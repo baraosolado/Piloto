@@ -291,7 +291,7 @@ function RideFormBody({
   };
 
   return (
-    <div className="flex max-h-[85vh] flex-col">
+    <div className="flex min-h-0 flex-1 flex-col">
       <div className="min-h-0 flex-1 space-y-6 overflow-y-auto px-1 pb-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         <div className="space-y-3">
           <Label className={labelClass}>Plataforma</Label>
@@ -564,14 +564,14 @@ export function RideFormDrawer({
           {children ? (
             <DrawerTrigger asChild>{children}</DrawerTrigger>
           ) : null}
-          <DrawerContent className="max-h-[90vh] rounded-t-[2rem] border-t bg-white px-6 pb-[calc(6rem+env(safe-area-inset-bottom))]">
+          <DrawerContent className="flex max-h-[90vh] flex-col overflow-hidden rounded-t-[2rem] border-t bg-white px-6 pb-[calc(2rem+env(safe-area-inset-bottom))]">
             <div className="mx-auto mt-2 h-1.5 w-12 rounded-full bg-[#c6c6c6]/40" />
             <DrawerHeader className="px-0 pt-4 pb-2 text-left">
               <DrawerTitle className="text-2xl font-bold tracking-tight">
                 {title}
               </DrawerTitle>
             </DrawerHeader>
-            {sharedForm}
+            <div className="min-h-0 flex-1">{sharedForm}</div>
           </DrawerContent>
         </Drawer>
         {upgradeModal}
@@ -584,7 +584,7 @@ export function RideFormDrawer({
       <Dialog open={open} onOpenChange={setOpen}>
         {children ? <DialogTrigger asChild>{children}</DialogTrigger> : null}
         <DialogContent
-          className="max-h-[90vh] max-w-lg gap-0 overflow-hidden p-6 pb-[calc(5.5rem+env(safe-area-inset-bottom))] sm:max-w-lg"
+          className="max-h-[90vh] max-w-lg gap-0 overflow-hidden p-6 pb-[calc(2rem+env(safe-area-inset-bottom))] sm:max-w-lg"
           showCloseButton
         >
           <DialogHeader className="pb-4 text-left">

@@ -143,7 +143,7 @@ function AddFormBody({
   };
 
   return (
-    <div className="flex max-h-[85vh] flex-col">
+    <div className="flex min-h-0 flex-1 flex-col">
       <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-1 pb-2">
         <div className="space-y-2">
           <Label>Tipo</Label>
@@ -271,14 +271,14 @@ export function MaintenanceAddDrawer({
         repositionInputs={false}
       >
         {children ? <DrawerTrigger asChild>{children}</DrawerTrigger> : null}
-        <DrawerContent className="max-h-[90vh] rounded-t-[2rem] border-t bg-white px-6 pb-[calc(2rem+env(safe-area-inset-bottom))]">
+        <DrawerContent className="flex max-h-[90vh] flex-col overflow-hidden rounded-t-[2rem] border-t bg-white px-6 pb-[calc(2rem+env(safe-area-inset-bottom))]">
           <div className="mx-auto mt-2 h-1.5 w-12 rounded-full bg-muted" />
           <DrawerHeader className="px-0 pt-4 pb-2 text-left">
             <DrawerTitle className="text-xl font-bold">
               Nova manutenção
             </DrawerTitle>
           </DrawerHeader>
-          {body}
+          <div className="min-h-0 flex-1">{body}</div>
         </DrawerContent>
       </Drawer>
     );
