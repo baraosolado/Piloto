@@ -3,6 +3,7 @@
 import {
   AlertTriangle,
   Fuel,
+  Loader2,
   MoreHorizontal,
   Save,
   Shield,
@@ -325,8 +326,8 @@ function ExpenseFormBody({
   };
 
   return (
-    <div className="flex max-h-[85vh] min-h-0 flex-col overflow-hidden">
-      <div className="min-h-0 flex-1 space-y-6 overflow-y-auto px-1 pb-[calc(6rem+env(safe-area-inset-bottom))] [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+      <div className="min-h-0 flex-1 space-y-6 overflow-y-auto px-0 pb-4 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         <div className="space-y-3">
           <Label className={labelClass}>Categoria</Label>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
@@ -488,20 +489,34 @@ function ExpenseFormBody({
         ) : null}
       </div>
 
-      <div className="mt-4 shrink-0 space-y-3 border-t border-[#eeeeee] bg-white pt-4 pb-[env(safe-area-inset-bottom)]">
+      <div
+        className="shrink-0 space-y-3 border-t border-border bg-background pt-3"
+        style={{
+          paddingBottom: "max(1.5rem, env(safe-area-inset-bottom, 0px))",
+        }}
+      >
         <Button
           type="button"
           disabled={pending}
           onClick={() => void submit()}
-          className="h-auto w-full gap-2 bg-black py-5 text-lg font-bold hover:bg-black/90"
+          className="h-12 w-full gap-2 bg-black text-base font-bold hover:bg-black/90"
         >
-          <Save className="size-5" strokeWidth={2} />
-          {expense ? "Salvar alterações" : "Salvar gasto"}
+          {pending ? (
+            <span className="flex items-center gap-2">
+              <Loader2 className="size-4 animate-spin" aria-hidden />
+              Salvando...
+            </span>
+          ) : (
+            <>
+              <Save className="size-5" strokeWidth={2} aria-hidden />
+              {expense ? "Salvar alterações" : "Salvar gasto"}
+            </>
+          )}
         </Button>
         <Button
           type="button"
           variant="ghost"
-          className="w-full font-bold text-[#474747]"
+          className="h-11 w-full font-bold text-[#474747]"
           onClick={onClose}
         >
           Cancelar
@@ -578,14 +593,16 @@ export function ExpenseFormDrawer({
           {children ? (
             <DrawerTrigger asChild>{children}</DrawerTrigger>
           ) : null}
-          <DrawerContent className="flex h-[90vh] max-h-[90vh] flex-col overflow-hidden rounded-t-[2rem] border-t bg-white px-6 pb-[calc(2rem+env(safe-area-inset-bottom))]">
-            <div className="mx-auto mt-2 h-1.5 w-12 rounded-full bg-[#c6c6c6]/40" />
-            <DrawerHeader className="px-0 pt-4 pb-2 text-left">
+          <DrawerContent className="flex max-h-[92dvh] flex-col overflow-hidden rounded-t-[2rem] border-t bg-white px-6 pb-0 pt-0">
+            <div className="mx-auto mt-2 h-1.5 w-12 shrink-0 rounded-full bg-[#c6c6c6]/40" />
+            <DrawerHeader className="shrink-0 px-0 pt-4 pb-2 text-left">
               <DrawerTitle className="text-2xl font-bold tracking-tight">
                 {title}
               </DrawerTitle>
             </DrawerHeader>
-            <div className="min-h-0 flex-1">{sharedForm}</div>
+            <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+              {sharedForm}
+            </div>
           </DrawerContent>
         </Drawer>
         {upgradeModal}
@@ -598,15 +615,17 @@ export function ExpenseFormDrawer({
       <Dialog open={open} onOpenChange={setOpen}>
         {children ? <DialogTrigger asChild>{children}</DialogTrigger> : null}
         <DialogContent
-          className="max-h-[90vh] max-w-lg gap-0 overflow-hidden p-6 pb-[calc(2rem+env(safe-area-inset-bottom))] sm:max-w-lg"
+          className="flex max-h-[90dvh] max-w-lg flex-col gap-0 overflow-hidden p-0 sm:max-w-lg"
           showCloseButton
         >
-          <DialogHeader className="pb-4 text-left">
+          <DialogHeader className="shrink-0 border-b border-border px-6 pb-4 pt-6 text-left">
             <DialogTitle className="text-2xl font-bold tracking-tight">
               {title}
             </DialogTitle>
           </DialogHeader>
-          {sharedForm}
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-6">
+            {sharedForm}
+          </div>
         </DialogContent>
       </Dialog>
       {upgradeModal}

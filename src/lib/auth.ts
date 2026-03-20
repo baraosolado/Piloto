@@ -10,15 +10,47 @@ import {
   sendPasswordResetEmail,
   sendVerificationEmailMessage,
 } from "@/lib/email";
+import { isDevelopmentPrivateLanOrigin } from "@/lib/cors";
 
-const baseURL = process.env.BETTER_AUTH_URL;
+const baseURLRaw = process.env.BETTER_AUTH_URL;
 const secret = process.env.BETTER_AUTH_SECRET;
 
-if (!baseURL) {
+if (!baseURLRaw) {
   throw new Error("BETTER_AUTH_URL não está definida");
 }
 if (!secret) {
   throw new Error("BETTER_AUTH_SECRET não está definida");
+}
+
+/** URL base do auth (string estreita — usada em closures abaixo). */
+const baseURL: string = baseURLRaw;
+
+/** Origens extras (dev: celular na LAN, 127.0.0.1 vs localhost). Vírgula no .env. */
+function extraTrustedOriginsFromEnv(): string[] {
+  const raw = process.env.BETTER_AUTH_EXTRA_TRUSTED_ORIGINS?.trim();
+  if (!raw) return [];
+  return raw.split(",").map((s) => s.trim()).filter((s) => s.length > 0);
+}
+
+/** Variável nativa do Better Auth (vírgula). Documentada no .env.local.example. */
+function trustedOriginsFromBetterAuthEnv(): string[] {
+  const raw = process.env.BETTER_AUTH_TRUSTED_ORIGINS?.trim();
+  if (!raw) return [];
+  return raw.split(",").map((s) => s.trim()).filter((s) => s.length > 0);
+}
+
+function normalizeOriginHeader(origin: string): string {
+  return origin.replace(/\/$/, "");
+}
+
+function baseTrustedOriginsList(): string[] {
+  const pub = process.env.NEXT_PUBLIC_APP_URL?.trim();
+  return [
+    baseURL,
+    ...(pub && pub !== baseURL ? [pub] : []),
+    ...extraTrustedOriginsFromEnv(),
+    ...trustedOriginsFromBetterAuthEnv(),
+  ];
 }
 
 export const auth = betterAuth({
@@ -40,13 +72,21 @@ export const auth = betterAuth({
   }),
   secret,
   baseURL,
-  trustedOrigins: [
-    baseURL,
-    ...(process.env.NEXT_PUBLIC_APP_URL &&
-    process.env.NEXT_PUBLIC_APP_URL !== baseURL
-      ? [process.env.NEXT_PUBLIC_APP_URL]
-      : []),
-  ],
+  /** Em dev, confia na origem do request se for IP privado (teste no celular na Wi‑Fi). */
+  trustedOrigins: async (request) => {
+    const list = [...baseTrustedOriginsList()];
+    const origin = request.headers.get("origin")?.trim();
+    if (origin) {
+      const normalized = normalizeOriginHeader(origin);
+      if (
+        !list.includes(normalized) &&
+        isDevelopmentPrivateLanOrigin(normalized)
+      ) {
+        list.push(normalized);
+      }
+    }
+    return list;
+  },
   emailAndPassword: {
     enabled: true,
     requireEmailVerification: false,

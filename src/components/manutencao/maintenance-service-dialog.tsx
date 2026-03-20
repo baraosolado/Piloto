@@ -1,7 +1,7 @@
 "use client";
 
 import { format, parse, startOfDay } from "date-fns";
-import { Wrench } from "lucide-react";
+import { Loader2, Wrench } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import type { MaintenanceItemDto } from "@/lib/maintenance-serialize";
@@ -98,55 +98,76 @@ export function MaintenanceServiceDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent showCloseButton className="sm:max-w-md">
-        <DialogHeader>
+      <DialogContent
+        showCloseButton
+        className="flex max-h-[90dvh] flex-col gap-0 overflow-hidden p-0 sm:max-w-md"
+      >
+        <DialogHeader className="shrink-0 border-b border-border px-6 pb-4 pt-6 text-left">
           <DialogTitle className="flex items-center gap-2 text-xl font-bold">
-            <Wrench className="size-5" />
+            <Wrench className="size-5" aria-hidden />
             Registrar serviço
           </DialogTitle>
           {item ? (
             <p className="text-sm text-muted-foreground">{item.type}</p>
           ) : null}
         </DialogHeader>
-        <div className="space-y-4 py-2">
-          <div className="space-y-2">
-            <Label htmlFor="svc-km">Km no serviço</Label>
-            <Input
-              id="svc-km"
-              inputMode="numeric"
-              value={km}
-              onChange={(e) => setKm(e.target.value)}
-              className={cn(fieldClass)}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="svc-date">Data do serviço</Label>
-            <Input
-              id="svc-date"
-              type="date"
-              value={dateStr}
-              onChange={(e) => setDateStr(e.target.value)}
-              className={cn(fieldClass)}
-            />
+        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4">
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="svc-km">Km no serviço</Label>
+              <Input
+                id="svc-km"
+                inputMode="numeric"
+                value={km}
+                onChange={(e) => setKm(e.target.value)}
+                className={cn(fieldClass)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="svc-date">Data do serviço</Label>
+              <Input
+                id="svc-date"
+                type="date"
+                value={dateStr}
+                onChange={(e) => setDateStr(e.target.value)}
+                className={cn(fieldClass)}
+              />
+            </div>
           </div>
         </div>
-        <DialogFooter className="gap-2 sm:justify-stretch">
-          <Button
-            type="button"
-            className="bg-black font-bold"
-            disabled={pending || !item}
-            onClick={() => void submit()}
-          >
-            Salvar
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-          >
-            Cancelar
-          </Button>
-        </DialogFooter>
+        <div
+          className="shrink-0 border-t border-border bg-background px-6 pt-3"
+          style={{
+            paddingBottom: "max(1.5rem, env(safe-area-inset-bottom, 0px))",
+          }}
+        >
+          <DialogFooter className="gap-2 sm:justify-stretch">
+            <Button
+              type="button"
+              className="h-12 flex-1 bg-black text-base font-bold"
+              disabled={pending || !item}
+              onClick={() => void submit()}
+            >
+              {pending ? (
+                <span className="flex items-center gap-2">
+                  <Loader2 className="size-4 animate-spin" aria-hidden />
+                  Salvando...
+                </span>
+              ) : (
+                "Salvar"
+              )}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="h-12 flex-1 text-base"
+              disabled={pending}
+              onClick={() => onOpenChange(false)}
+            >
+              Cancelar
+            </Button>
+          </DialogFooter>
+        </div>
       </DialogContent>
     </Dialog>
   );

@@ -250,42 +250,64 @@ export function ConfiguracoesPerfilForm({
       </form>
 
       <Dialog open={emailOpen} onOpenChange={setEmailOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
+        <DialogContent className="flex max-h-[90dvh] flex-col gap-0 overflow-hidden p-0 sm:max-w-md">
+          <DialogHeader className="shrink-0 border-b border-border px-6 pb-4 pt-6 text-left">
             <DialogTitle>Alterar e-mail</DialogTitle>
             <DialogDescription>
               Enviaremos um link de confirmação para o novo endereço. O e-mail
               atual continua ativo até você confirmar.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-2 py-2">
-            <Label htmlFor="new-email">Novo e-mail</Label>
-            <Input
-              id="new-email"
-              type="email"
-              value={newEmail}
-              onChange={(e) => setNewEmail(e.target.value)}
-              placeholder="novo@email.com"
-            />
+          <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="new-email">Novo e-mail</Label>
+              <Input
+                id="new-email"
+                type="email"
+                value={newEmail}
+                onChange={(e) => setNewEmail(e.target.value)}
+                placeholder="novo@email.com"
+              />
+            </div>
           </div>
-          <DialogFooter className="gap-2 sm:gap-0">
-            <Button variant="outline" onClick={() => setEmailOpen(false)}>
-              Cancelar
-            </Button>
-            <Button onClick={onChangeEmail} disabled={emailSubmitting}>
-              {emailSubmitting ? (
-                <Loader2 className="size-4 animate-spin" />
-              ) : (
-                "Enviar confirmação"
-              )}
-            </Button>
-          </DialogFooter>
+          <div
+            className="shrink-0 border-t border-border bg-background px-6 pt-3"
+            style={{
+              paddingBottom: "max(1.5rem, env(safe-area-inset-bottom, 0px))",
+            }}
+          >
+            <div className="flex flex-col gap-2 sm:flex-row sm:justify-stretch">
+              <Button
+                type="button"
+                variant="outline"
+                className="h-12 flex-1 text-base"
+                onClick={() => setEmailOpen(false)}
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="button"
+                className="h-12 flex-1 text-base"
+                onClick={onChangeEmail}
+                disabled={emailSubmitting}
+              >
+                {emailSubmitting ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <Loader2 className="size-4 animate-spin" aria-hidden />
+                    Enviando...
+                  </span>
+                ) : (
+                  "Enviar confirmação"
+                )}
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
 
       <Dialog open={passwordOpen} onOpenChange={setPasswordOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
+        <DialogContent className="flex max-h-[90dvh] flex-col gap-0 overflow-hidden p-0 sm:max-w-md">
+          <DialogHeader className="shrink-0 border-b border-border px-6 pb-4 pt-6 text-left">
             <DialogTitle>Alterar senha</DialogTitle>
             <DialogDescription>
               Use uma senha forte com pelo menos 8 caracteres.
@@ -293,56 +315,73 @@ export function ConfiguracoesPerfilForm({
           </DialogHeader>
           <form
             onSubmit={passwordForm.handleSubmit(onChangePassword)}
-            className="space-y-3"
+            className="flex min-h-0 flex-1 flex-col overflow-hidden"
           >
-            <div className="space-y-2">
-              <Label htmlFor="cur-pw">Senha atual</Label>
-              <Input
-                id="cur-pw"
-                type="password"
-                autoComplete="current-password"
-                {...passwordForm.register("currentPassword")}
-              />
+            <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-6 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="cur-pw">Senha atual</Label>
+                <Input
+                  id="cur-pw"
+                  type="password"
+                  autoComplete="current-password"
+                  {...passwordForm.register("currentPassword")}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="new-pw">Nova senha</Label>
+                <Input
+                  id="new-pw"
+                  type="password"
+                  autoComplete="new-password"
+                  {...passwordForm.register("newPassword")}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="conf-pw">Confirmar nova senha</Label>
+                <Input
+                  id="conf-pw"
+                  type="password"
+                  autoComplete="new-password"
+                  {...passwordForm.register("confirmPassword")}
+                />
+              </div>
+              {passwordForm.formState.errors.confirmPassword && (
+                <p className="text-xs text-destructive">
+                  {passwordForm.formState.errors.confirmPassword.message}
+                </p>
+              )}
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="new-pw">Nova senha</Label>
-              <Input
-                id="new-pw"
-                type="password"
-                autoComplete="new-password"
-                {...passwordForm.register("newPassword")}
-              />
+            <div
+              className="shrink-0 border-t border-border bg-background px-6 pt-3"
+              style={{
+                paddingBottom: "max(1.5rem, env(safe-area-inset-bottom, 0px))",
+              }}
+            >
+              <DialogFooter className="gap-2 pt-0 sm:justify-stretch">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-12 flex-1 text-base"
+                  onClick={() => setPasswordOpen(false)}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  type="submit"
+                  className="h-12 flex-1 text-base"
+                  disabled={passwordForm.formState.isSubmitting}
+                >
+                  {passwordForm.formState.isSubmitting ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <Loader2 className="size-4 animate-spin" aria-hidden />
+                      Salvando...
+                    </span>
+                  ) : (
+                    "Salvar senha"
+                  )}
+                </Button>
+              </DialogFooter>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="conf-pw">Confirmar nova senha</Label>
-              <Input
-                id="conf-pw"
-                type="password"
-                autoComplete="new-password"
-                {...passwordForm.register("confirmPassword")}
-              />
-            </div>
-            {passwordForm.formState.errors.confirmPassword && (
-              <p className="text-xs text-destructive">
-                {passwordForm.formState.errors.confirmPassword.message}
-              </p>
-            )}
-            <DialogFooter className="pt-4">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setPasswordOpen(false)}
-              >
-                Cancelar
-              </Button>
-              <Button type="submit" disabled={passwordForm.formState.isSubmitting}>
-                {passwordForm.formState.isSubmitting ? (
-                  <Loader2 className="size-4 animate-spin" />
-                ) : (
-                  "Salvar senha"
-                )}
-              </Button>
-            </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>

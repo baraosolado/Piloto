@@ -1,7 +1,7 @@
 "use client";
 
 import { format, parse, startOfDay } from "date-fns";
-import { Save } from "lucide-react";
+import { Loader2, Save } from "lucide-react";
 import { useCallback, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -143,8 +143,8 @@ function AddFormBody({
   };
 
   return (
-    <div className="flex max-h-[85vh] min-h-0 flex-col overflow-hidden">
-      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-1 pb-[calc(6rem+env(safe-area-inset-bottom))] [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-0 pb-4 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         <div className="space-y-2">
           <Label>Tipo</Label>
           <Select value={typeKey} onValueChange={setTypeKey}>
@@ -216,20 +216,34 @@ function AddFormBody({
           </div>
         </div>
       </div>
-      <div className="mt-4 shrink-0 space-y-2 border-t border-border bg-white pt-4 pb-[env(safe-area-inset-bottom)]">
+      <div
+        className="shrink-0 space-y-2 border-t border-border bg-background pt-3"
+        style={{
+          paddingBottom: "max(1.5rem, env(safe-area-inset-bottom, 0px))",
+        }}
+      >
         <Button
           type="button"
           disabled={pending}
-          className="h-12 w-full gap-2 bg-black font-bold"
+          className="h-12 w-full gap-2 bg-black text-base font-bold"
           onClick={() => void submit()}
         >
-          <Save className="size-4" />
-          Salvar
+          {pending ? (
+            <span className="flex items-center gap-2">
+              <Loader2 className="size-4 animate-spin" aria-hidden />
+              Salvando...
+            </span>
+          ) : (
+            <>
+              <Save className="size-4" aria-hidden />
+              Salvar
+            </>
+          )}
         </Button>
         <Button
           type="button"
           variant="ghost"
-          className="w-full font-semibold"
+          className="h-11 w-full font-semibold"
           onClick={onClose}
         >
           Cancelar
@@ -271,14 +285,16 @@ export function MaintenanceAddDrawer({
         repositionInputs={false}
       >
         {children ? <DrawerTrigger asChild>{children}</DrawerTrigger> : null}
-        <DrawerContent className="flex h-[90vh] max-h-[90vh] flex-col overflow-hidden rounded-t-[2rem] border-t bg-white px-6 pb-[calc(2rem+env(safe-area-inset-bottom))]">
-          <div className="mx-auto mt-2 h-1.5 w-12 rounded-full bg-muted" />
-          <DrawerHeader className="px-0 pt-4 pb-2 text-left">
+        <DrawerContent className="flex max-h-[92dvh] flex-col overflow-hidden rounded-t-[2rem] border-t bg-white px-6 pb-0 pt-0">
+          <div className="mx-auto mt-2 h-1.5 w-12 shrink-0 rounded-full bg-muted" />
+          <DrawerHeader className="shrink-0 px-0 pt-4 pb-2 text-left">
             <DrawerTitle className="text-xl font-bold">
               Nova manutenção
             </DrawerTitle>
           </DrawerHeader>
-          <div className="min-h-0 flex-1">{body}</div>
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+            {body}
+          </div>
         </DrawerContent>
       </Drawer>
     );
@@ -287,13 +303,18 @@ export function MaintenanceAddDrawer({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       {children ? <DialogTrigger asChild>{children}</DialogTrigger> : null}
-      <DialogContent className="max-h-[90vh] max-w-lg overflow-y-auto">
-        <DialogHeader>
+      <DialogContent
+        className="flex max-h-[90dvh] max-w-lg flex-col gap-0 overflow-hidden p-0 sm:max-w-lg"
+        showCloseButton
+      >
+        <DialogHeader className="shrink-0 border-b border-border px-6 pb-4 pt-6 text-left">
           <DialogTitle className="text-xl font-bold">
             Nova manutenção
           </DialogTitle>
         </DialogHeader>
-        {body}
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-6">
+          {body}
+        </div>
       </DialogContent>
     </Dialog>
   );

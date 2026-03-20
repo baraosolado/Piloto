@@ -306,3 +306,47 @@ Se o tema estranhar, repetir o init com CLI mais nova.
 O npm pode avisar sobre CVE nessa versão. Ignorar — a versão 15.2.4
 foi definida intencionalmente no PRD do projeto. Não fazer upgrade de patch
 sem validar compatibilidade com o restante da stack.
+
+---
+
+## Padrão obrigatório — drawers e modais com formulário
+
+Todo Drawer ou Dialog que contenha formulário DEVE seguir esta estrutura
+de 3 zonas. Nunca colocar o botão de ação no fluxo de scroll.
+
+### Estrutura obrigatória
+
+DrawerContent ou DialogContent
+  ├── Header (flex-shrink-0) — título fixo no topo
+  ├── Área de campos (flex-1 overflow-y-auto) — scroll interno
+  └── Footer (shrink-0) — botão Salvar sempre visível
+
+### Classes obrigatórias no container (DrawerContent / DialogContent)
+max-h-[92dvh]        ← SEMPRE dvh, nunca vh
+flex flex-col        ← necessário para o layout funcionar
+overflow-hidden      ← evita scroll duplo
+pb-0                 ← sem padding no container (vai no footer)
+
+### Classes obrigatórias na área de campos
+flex min-h-0 flex-1 flex-col overflow-hidden
+  └── div interno dos campos: flex-1 overflow-y-auto pb-4
+
+### Footer fixo (sempre fora do scroll)
+className="shrink-0 border-t bg-background px-4 pt-3"
+style={{ paddingBottom: "max(1.5rem, env(safe-area-inset-bottom, 0px))" }}
+
+  └── Botão principal: h-12 text-base w-full
+  └── Estado loading: disabled + Loader2 animate-spin + "Salvando..."
+
+### Por que dvh e não vh
+vh é calculado uma vez e não muda quando o teclado virtual abre.
+dvh (dynamic viewport height) recalcula automaticamente — o layout
+se adapta quando o teclado sobe ou desce no iOS e Android.
+
+### Por que safe-area-inset-bottom
+iPhones com notch/Dynamic Island têm indicador de home na base.
+env(safe-area-inset-bottom) garante que o botão não fica atrás dele.
+O fallback 0px é para Android e desktop onde essa variável não existe.
+
+### Exemplo completo de referência
+Ver: src/components/rides/ride-form-drawer.tsx (corrigido em março/2026)

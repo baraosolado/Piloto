@@ -58,7 +58,13 @@ export function LoginForm() {
       if (isRateLimitError(result.error)) {
         toast.error("Muitas tentativas. Aguarde 15 minutos.");
       } else {
-        toast.error("Email ou senha incorretos");
+        const msg = result.error.message?.trim();
+        if (process.env.NODE_ENV === "development" && msg) {
+          console.error("[login] Better Auth:", result.error);
+          toast.error(`Falha no login: ${msg}`);
+        } else {
+          toast.error("Email ou senha incorretos");
+        }
       }
       return;
     }

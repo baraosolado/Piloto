@@ -101,7 +101,11 @@ export function CadastroForm() {
     });
 
     if (result.error) {
-      toast.error(result.error.message ?? "Não foi possível criar a conta.");
+      const msg = result.error.message?.trim();
+      if (process.env.NODE_ENV === "development" && msg) {
+        console.error("[cadastro] Better Auth:", result.error);
+      }
+      toast.error(msg ?? "Não foi possível criar a conta.");
       return;
     }
 
