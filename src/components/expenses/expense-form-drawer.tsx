@@ -325,8 +325,8 @@ function ExpenseFormBody({
   };
 
   return (
-    <div className="flex max-h-[85vh] min-h-0 flex-col overflow-y-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-      <div className="space-y-6 px-1 pb-[calc(6rem+env(safe-area-inset-bottom))]">
+    <div className="flex max-h-[85vh] min-h-0 flex-col overflow-hidden">
+      <div className="min-h-0 flex-1 space-y-6 overflow-y-auto px-1 pb-[calc(6rem+env(safe-area-inset-bottom))] [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         <div className="space-y-3">
           <Label className={labelClass}>Categoria</Label>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
@@ -488,7 +488,7 @@ function ExpenseFormBody({
         ) : null}
       </div>
 
-      <div className="sticky bottom-0 z-10 mt-4 shrink-0 space-y-3 border-t border-[#eeeeee] bg-white pt-4 pb-[env(safe-area-inset-bottom)]">
+      <div className="mt-4 shrink-0 space-y-3 border-t border-[#eeeeee] bg-white pt-4 pb-[env(safe-area-inset-bottom)]">
         <Button
           type="button"
           disabled={pending}

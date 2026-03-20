@@ -143,8 +143,8 @@ function AddFormBody({
   };
 
   return (
-    <div className="flex max-h-[85vh] min-h-0 flex-col overflow-y-auto">
-      <div className="space-y-4 px-1 pb-[calc(6rem+env(safe-area-inset-bottom))]">
+    <div className="flex max-h-[85vh] min-h-0 flex-col overflow-hidden">
+      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-1 pb-[calc(6rem+env(safe-area-inset-bottom))] [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         <div className="space-y-2">
           <Label>Tipo</Label>
           <Select value={typeKey} onValueChange={setTypeKey}>
@@ -216,7 +216,7 @@ function AddFormBody({
           </div>
         </div>
       </div>
-      <div className="sticky bottom-0 z-10 mt-4 shrink-0 space-y-2 border-t border-border bg-white pt-4 pb-[env(safe-area-inset-bottom)]">
+      <div className="mt-4 shrink-0 space-y-2 border-t border-border bg-white pt-4 pb-[env(safe-area-inset-bottom)]">
         <Button
           type="button"
           disabled={pending}
