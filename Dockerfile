@@ -17,9 +17,28 @@ RUN apk add --no-cache libc6-compat
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
-# Ajuste build-time se necessário (Stripe, app URL, Sentry):
+
+# ── Build-time: obrigatórios para importar @/db e @/lib/auth (não há .env.local na imagem)
+#     Easypanel/GitHub: passe os mesmos valores reais via --build-arg.
+#     O build não precisa alcançar o Postgres; só precisa existir uma URL válida em formato.
+ARG DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5432/piloto_build
+ENV DATABASE_URL=$DATABASE_URL
+
+ARG BETTER_AUTH_URL=http://127.0.0.1:3000
+ENV BETTER_AUTH_URL=$BETTER_AUTH_URL
+
+ARG BETTER_AUTH_SECRET=00000000000000000000000000000000
+ENV BETTER_AUTH_SECRET=$BETTER_AUTH_SECRET
+
 ARG NEXT_PUBLIC_APP_URL=https://localhost:3000
 ENV NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL
+
+# Opcionais (Sentry no cliente / upload de source maps)
+ARG NEXT_PUBLIC_SENTRY_DSN=
+ENV NEXT_PUBLIC_SENTRY_DSN=$NEXT_PUBLIC_SENTRY_DSN
+ARG SENTRY_AUTH_TOKEN=
+ENV SENTRY_AUTH_TOKEN=$SENTRY_AUTH_TOKEN
+
 RUN npm run build
 RUN npm prune --omit=dev
 
