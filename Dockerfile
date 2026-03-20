@@ -56,8 +56,16 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next ./.next
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules ./node_modules
 COPY --from=builder /app/package.json ./package.json
 COPY --from=builder /app/next.config.ts ./next.config.ts
+# Migrations na subida do container (tabela users, sessions, etc.)
+COPY --from=builder /app/drizzle.config.ts ./drizzle.config.ts
+COPY --from=builder /app/tsconfig.json ./tsconfig.json
+COPY --from=builder /app/src/db ./src/db
+COPY scripts/docker-entrypoint.sh ./scripts/docker-entrypoint.sh
+RUN chmod +x ./scripts/docker-entrypoint.sh \
+  && chown -R nextjs:nodejs ./src/db ./scripts ./drizzle.config.ts ./tsconfig.json
 
 USER nextjs
 EXPOSE 3000
 
+ENTRYPOINT ["./scripts/docker-entrypoint.sh"]
 CMD ["npm", "run", "start"]
