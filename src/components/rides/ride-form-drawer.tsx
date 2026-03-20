@@ -564,7 +564,7 @@ export function RideFormDrawer({
           {children ? (
             <DrawerTrigger asChild>{children}</DrawerTrigger>
           ) : null}
-          <DrawerContent className="max-h-[90vh] rounded-t-[2rem] border-t bg-white px-6 pb-8">
+          <DrawerContent className="max-h-[90vh] rounded-t-[2rem] border-t bg-white px-6 pb-[calc(6rem+env(safe-area-inset-bottom))]">
             <div className="mx-auto mt-2 h-1.5 w-12 rounded-full bg-[#c6c6c6]/40" />
             <DrawerHeader className="px-0 pt-4 pb-2 text-left">
               <DrawerTitle className="text-2xl font-bold tracking-tight">
@@ -584,7 +584,7 @@ export function RideFormDrawer({
       <Dialog open={open} onOpenChange={setOpen}>
         {children ? <DialogTrigger asChild>{children}</DialogTrigger> : null}
         <DialogContent
-          className="max-h-[90vh] max-w-lg gap-0 overflow-hidden p-6 sm:max-w-lg"
+          className="max-h-[90vh] max-w-lg gap-0 overflow-hidden p-6 pb-[calc(5.5rem+env(safe-area-inset-bottom))] sm:max-w-lg"
           showCloseButton
         >
           <DialogHeader className="pb-4 text-left">
