@@ -1,0 +1,63 @@
+# Push em main → CI (typecheck, lint, build) → deploy SSH no VPS
+#
+# Secrets (Settings → Secrets and variables → Actions):
+#   VPS_HOST      — hostname ou IP
+#   VPS_USER      — usuário SSH
+#   VPS_SSH_KEY   — chave privada (PEM) com acesso ao servidor
+#
+# Opcional para source maps Sentry no build da Actions:
+#   SENTRY_AUTH_TOKEN
+
+name: Deploy para produção
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: CI e deploy no VPS
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          # Evita falha de build se o wizard esperar variáveis públicas mínimas:
+          NEXT_PUBLIC_APP_URL: https://example.com
+          NEXT_TELEMETRY_DISABLED: "1"
+        run: npm run build
+
+      - name: Deploy no VPS (SSH)
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script_stop: true
+          script: |
+            set -euo pipefail
+            cd /var/www/piloto
+            bash scripts/deploy.sh

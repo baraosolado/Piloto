@@ -1,0 +1,178 @@
+---
+description: PRD completo do projeto Piloto — leia antes de qualquer tarefa
+globs: ["**/*.ts", "**/*.tsx", "**/*.js", "**/*.jsx"]
+alwaysApply: true
+---
+
+# Piloto — PRD Completo do Projeto
+
+## O que é este projeto
+
+**Piloto** é um SaaS financeiro web-first para motoristas de aplicativo brasileiros (Uber, 99, inDrive). O produto resolve uma dor central: motoristas não sabem quanto ganham de verdade depois de descontar combustível, manutenção e depreciação do veículo.
+
+**Missão:** Dar ao motorista a visão real do seu lucro líquido — de forma simples, rápida e sem jargão financeiro.
+
+---
+
+## Público-alvo
+
+**Persona principal:** João, 28–45 anos, motorista full-time, renda bruta R$4k–7k/mês mas não sabe o líquido real. Acessa pelo celular, usa Android. Quer saber se vale continuar, quanto pode guardar e qual horário trabalhar.
+
+**Persona secundária:** Carlos, motorista part-time, quer saber se o app financeiramente compensa.
+
+---
+
+## Identidade visual (seguir sempre)
+
+- Estilo: Inspirado na Uber — minimalista, preto e branco, tipografia forte
+- Cores: Preto #000000 | Branco #FFFFFF | Cinza fundo #F6F6F6 | Cinza borda #EEEEEE | Verde #00A651 | Vermelho #E53935
+- Fonte: Inter (Google Fonts) — 400 regular, 500 medium, 700 bold
+- Radius: 8px cards, 4px inputs
+- Espaçamento: sistema de 4px (4, 8, 12, 16, 24, 32, 48)
+- Ícones: Lucide React (linha fina)
+- Sombras: mínimas — apenas shadow-sm em cards principais
+- Sidebar desktop: fundo preto #000, texto branco, item ativo borda esquerda 2px branca
+
+---
+
+## Estrutura de rotas
+
+/ → Landing page (pública)
+/cadastro → Cadastro (pública)
+/login → Login (pública)
+/recuperar-senha → Recuperação de senha (pública)
+/onboarding/veiculo → Passo 1 onboarding (autenticado)
+/onboarding/plataformas → Passo 2 onboarding (autenticado)
+/onboarding/meta → Passo 3 onboarding (autenticado)
+/dashboard → Dashboard principal (autenticado)
+/corridas → Lista de corridas (autenticado)
+/gastos → Lista de gastos (autenticado)
+/inteligencia → Score + heatmap (autenticado, PREMIUM)
+/manutencao → Manutenção do veículo (autenticado)
+/metas → Metas mensais (autenticado)
+/relatorios → Relatórios e exportação (autenticado, PREMIUM)
+/planos → Upgrade de plano (autenticado)
+/configuracoes/perfil → Perfil do usuário
+/configuracoes/veiculo → Dados do veículo
+/configuracoes/plano → Gerenciar assinatura
+/configuracoes/conta → Excluir conta / LGPD
+
+---
+
+## Funcionalidades por módulo
+
+### Autenticação
+- Email + senha (sem OAuth no MVP)
+- JWT: access token 15min + refresh token 7 dias
+- Bcrypt cost factor 12
+- Rate limit: 5 tentativas / 15 min por IP
+- Recuperação de senha via link no email (token expira em 1h)
+
+### Onboarding (3 passos obrigatórios após cadastro)
+1. Dados do veículo: modelo, ano, consumo km/l, preço combustível, odômetro
+2. Plataformas que usa: Uber, 99, inDrive, Particular (múltipla escolha)
+3. Meta de lucro líquido mensal (com slider e preview diário)
+
+### Dashboard
+- Seletor de período: Hoje / Esta semana / Este mês / Personalizado
+- Cards: Faturamento Bruto, Total Gastos, Lucro Líquido, Custo/Km
+- Comparativo com período anterior (% de variação)
+- Barra de progresso da meta mensal
+- Gráfico de lucro diário (LineChart)
+- Gráfico de gastos por categoria (BarChart horizontal)
+- Tabela das últimas 5 corridas
+
+### Corridas
+- Registro manual: plataforma + valor bruto + km + data/hora + duração + observação
+- Preview em tempo real do lucro líquido ao registrar
+- Lista com filtro por período e plataforma
+- Edição e exclusão
+- Limite freemium: 50 corridas/mês (plano free)
+
+### Gastos
+- Categorias: Combustível, Manutenção, Seguro, Multa, Outros
+- Para combustível: campos extras (litros + odômetro) → calcula custo/km automaticamente
+- Lista com filtro por período e categoria
+- Edição e exclusão
+- Limite freemium: 20 gastos/mês (plano free)
+
+### Inteligência (PREMIUM)
+- Score de eficiência por turno: lucro/hora em Madrugada/Manhã/Tarde/Noite
+- Heatmap: grid 7 dias × 4 turnos com intensidade de cor por lucro/hora
+- Comparativo de plataformas: corridas, faturamento, lucro líquido, lucro/hora
+- Evolução do custo/km nos últimos 6 meses
+
+### Manutenção
+- Itens cadastrados com km do último serviço, intervalo, custo estimado
+- Status automático: ok (<80%), próximo (80–99%), atrasado (≥100%)
+- Alertas no topo quando há itens próximos ou atrasados
+- Provisão sugerida em R$/km
+- Histórico de serviços realizados
+
+### Metas
+- Meta mensal de lucro líquido
+- Progresso em tempo real com previsão de atingimento
+- Histórico dos últimos 6 meses
+
+### Relatórios (PREMIUM)
+- Relatório PDF mensal completo
+- Exportação CSV de corridas e gastos
+
+### Planos
+- Free: 50 corridas/mês, 20 gastos/mês, dashboard básico
+- Premium R$19,90/mês: tudo ilimitado + inteligência + PDF + CSV
+- Pagamento via Stripe Checkout
+- Cancelamento via Stripe Customer Portal
+
+---
+
+## Regras de negócio (usar sempre de calculations.ts)
+
+Custo da corrida = (km / consumo_km_l) × preco_combustivel + (km × depreciacao_por_km)
+Lucro líquido = valor_bruto - custo_da_corrida
+Custo/km = total_gasto_combustivel / total_km_rodados
+Score do turno = lucro_liquido_do_turno / horas_trabalhadas_no_turno
+Turnos: Madrugada 00–06h | Manhã 06–12h | Tarde 12–18h | Noite 18–00h
+Depreciação padrão: R$0,10/km (configurável)
+Meta diária = meta_mensal / 22
+
+---
+
+## Requisitos não funcionais
+
+### Segurança (nunca abrir mão)
+- Toda mutation verifica ownership: recurso pertence ao usuário logado
+- Variáveis sensíveis sempre em .env — jamais hardcoded
+- HTTPS obrigatório em produção
+- Headers: CSP, X-Frame-Options, HSTS, nosniff
+- Rate limiting em todas as rotas de autenticação
+
+### Performance
+- LCP < 2,5s
+- API responses < 300ms (P95)
+- Funciona bem em 4G
+
+### Responsividade
+- Sidebar no desktop (≥1024px), bottom nav no mobile (<768px)
+- Botões mínimo 44px de altura
+
+### Padrão de resposta das APIs
+{ data: T, error: null }
+{ data: null, error: { code: string, message: string } }
+
+### LGPD
+- Exportar todos os dados do usuário
+- Excluir conta com confirmação (digitar "EXCLUIR")
+
+---
+
+## O que NÃO existe no MVP (não implementar)
+
+- Login com Google ou redes sociais
+- Integração automática com APIs da Uber/99
+- Conta digital ou cartão próprio
+- Mapa de calor geográfico
+- Automação do MEI ou DAS
+- Notificações push
+- App nativo iOS/Android
+- Microcrédito ou antecipação

@@ -1,0 +1,308 @@
+---
+description: Stack tecnológica do projeto Piloto — versões, configurações e padrões
+globs: ["**/*.ts", "**/*.tsx", "**/*.js", "**/*.jsx", "**/*.css"]
+alwaysApply: true
+---
+
+# Stack Tecnológica — Piloto
+
+## Versões obrigatórias (nunca instalar versão diferente)
+
+Next.js: 15.2.4
+React: 19.1.0 (incluído no Next.js)
+TypeScript: 5.8.2 (strict: true sempre)
+Tailwind CSS: 4.1.0
+shadcn/ui CLI: 2.5.0
+Lucide React: 0.487.0
+Recharts: 2.15.1
+Better Auth: 1.2.7
+Drizzle ORM: 0.41.0
+Drizzle Kit: 0.30.0
+PostgreSQL: 17.4 (VPS próprio)
+Zod: 3.24.2
+React Hook Form: 7.55.0
+@hookform/resolvers: 3.10.0
+date-fns: 4.1.0
+Stripe: 17.7.0
+@react-pdf/renderer: 4.3.0
+Sonner: 2.0.3
+clsx: 2.1.1
+tailwind-merge: 3.2.0
+framer-motion: 12.6.0
+Node.js: 22.14.0 LTS (VPS)
+PM2: 5.4.3
+
+---
+
+## Estrutura de pastas (seguir exatamente)
+
+src/
+├── app/
+│   ├── (public)/
+│   │   ├── layout.tsx
+│   │   ├── page.tsx
+│   │   ├── login/page.tsx
+│   │   ├── cadastro/page.tsx
+│   │   └── recuperar-senha/page.tsx
+│   ├── (onboarding)/
+│   │   ├── layout.tsx
+│   │   └── onboarding/
+│   │       ├── veiculo/page.tsx
+│   │       ├── plataformas/page.tsx
+│   │       └── meta/page.tsx
+│   ├── (app)/
+│   │   ├── layout.tsx
+│   │   ├── dashboard/page.tsx
+│   │   ├── corridas/page.tsx
+│   │   ├── gastos/page.tsx
+│   │   ├── inteligencia/page.tsx
+│   │   ├── manutencao/page.tsx
+│   │   ├── metas/page.tsx
+│   │   ├── relatorios/page.tsx
+│   │   ├── planos/page.tsx
+│   │   └── configuracoes/
+│   │       ├── perfil/page.tsx
+│   │       ├── veiculo/page.tsx
+│   │       ├── plano/page.tsx
+│   │       └── conta/page.tsx
+│   ├── api/
+│   │   ├── auth/[...all]/route.ts
+│   │   ├── rides/route.ts
+│   │   ├── rides/[id]/route.ts
+│   │   ├── rides/export/route.ts
+│   │   ├── expenses/route.ts
+│   │   ├── expenses/[id]/route.ts
+│   │   ├── expenses/export/route.ts
+│   │   ├── goals/route.ts
+│   │   ├── vehicle/route.ts
+│   │   ├── platforms/route.ts
+│   │   ├── maintenance/route.ts
+│   │   ├── maintenance/[id]/route.ts
+│   │   ├── reports/pdf/route.ts
+│   │   ├── stripe/create-checkout/route.ts
+│   │   ├── stripe/create-portal/route.ts
+│   │   └── webhooks/stripe/route.ts
+│   ├── layout.tsx
+│   └── globals.css
+├── components/
+│   ├── ui/
+│   ├── layout/
+│   │   ├── sidebar.tsx
+│   │   ├── header.tsx
+│   │   └── mobile-nav.tsx
+│   ├── dashboard/
+│   │   ├── stat-card.tsx
+│   │   ├── goal-progress.tsx
+│   │   ├── profit-chart.tsx
+│   │   └── expenses-chart.tsx
+│   ├── rides/
+│   │   ├── ride-form-drawer.tsx
+│   │   └── rides-filters.tsx
+│   ├── expenses/
+│   │   └── expense-form-drawer.tsx
+│   ├── onboarding/
+│   │   └── progress-steps.tsx
+│   └── shared/
+│       ├── premium-gate.tsx
+│       ├── empty-state.tsx
+│       └── confirm-dialog.tsx
+├── db/
+│   ├── schema.ts
+│   ├── index.ts
+│   └── migrations/
+├── lib/
+│   ├── auth.ts
+│   ├── auth-client.ts
+│   ├── db.ts
+│   ├── stripe.ts
+│   ├── utils.ts
+│   ├── calculations.ts
+│   └── rate-limiter.ts
+├── hooks/
+│   ├── use-session.ts
+│   └── use-subscription.ts
+└── types/
+    └── index.ts
+
+---
+
+## Padrões obrigatórios de código
+
+### TypeScript
+- strict: true sempre — nunca usar any
+- Todos os schemas de API validados com Zod antes de usar
+- Usar unknown + type guards quando o tipo é incerto
+
+### Componentes React
+- Server Components por padrão
+- "use client" apenas quando necessário (interatividade, hooks, browser APIs)
+- Nunca usar useEffect para buscar dados — usar Server Components com async/await
+
+### API Routes — toda route handler deve:
+1. Verificar sessão primeiro (requireSession)
+2. Verificar ownership em PATCH e DELETE
+3. Validar body com Zod
+4. Executar operação
+5. Retornar { data, error } no padrão
+
+### Segurança em PATCH e DELETE (sempre):
+const item = await db.query.table.findFirst({
+  where: and(eq(table.id, id), eq(table.userId, session.user.id))
+})
+if (!item) return 404
+
+---
+
+## Banco de dados
+
+### Conexão (src/lib/db.ts)
+import { drizzle } from "drizzle-orm/node-postgres"
+import { Pool } from "pg"
+import * as schema from "@/db/schema"
+const pool = new Pool({ connectionString: process.env.DATABASE_URL })
+export const db = drizzle(pool, { schema })
+
+### Enums do schema
+platformEnum: uber | 99 | indrive | particular
+expenseCategoryEnum: fuel | maintenance | insurance | fine | other
+
+### Tabelas
+users: id, name, email (único), passwordHash, city, createdAt, updatedAt
+sessions: gerenciada pelo Better Auth
+vehicles: id, userId (fk cascade), model, year, fuelConsumption, fuelPrice, depreciationPerKm (default 0.10), currentOdometer
+platformsUsed: id, userId (fk cascade), platform
+rides: id, userId (fk cascade), platform, grossAmount, distanceKm, startedAt, durationMinutes?, notes?, createdAt
+expenses: id, userId (fk cascade), category, amount, odometer?, liters?, description?, occurredAt, createdAt
+goals: id, userId (fk cascade), monthlyTarget, month, year, achieved (default false)
+maintenanceItems: id, userId (fk cascade), type, lastServiceKm, lastServiceAt, intervalKm, estimatedCost?
+subscriptions: id, userId (fk cascade único), plan (default 'free'), stripeCustomerId?, stripeSubscriptionId?, currentPeriodEnd?, cancelAtPeriodEnd (default false), createdAt
+
+### Comandos Drizzle
+npx drizzle-kit generate   → gera migration após mudar schema
+npx drizzle-kit migrate    → aplica no banco
+npx drizzle-kit studio     → GUI visual (desenvolvimento)
+
+---
+
+## Autenticação (Better Auth)
+
+### src/lib/auth.ts
+import { betterAuth } from "better-auth"
+import { drizzleAdapter } from "better-auth/adapters/drizzle"
+import { db } from "./db"
+import { redirect } from "next/navigation"
+import { headers } from "next/headers"
+
+export const auth = betterAuth({
+  database: drizzleAdapter(db, { provider: "pg" }),
+  emailAndPassword: { enabled: true },
+  session: {
+    expiresIn: 60 * 60 * 24 * 7,
+    updateAge: 60 * 60 * 24,
+  },
+})
+
+export async function requireSession() {
+  const session = await auth.api.getSession({ headers: await headers() })
+  if (!session) redirect("/login")
+  return session
+}
+
+### src/lib/auth-client.ts
+import { createAuthClient } from "better-auth/react"
+export const authClient = createAuthClient({
+  baseURL: process.env.NEXT_PUBLIC_APP_URL,
+})
+
+---
+
+## Tailwind CSS 4 — tema (globals.css)
+
+@import "tailwindcss";
+
+@theme {
+  --color-primary: #000000;
+  --color-background: #ffffff;
+  --color-muted: #f6f6f6;
+  --color-border: #eeeeee;
+  --color-success: #00a651;
+  --color-danger: #e53935;
+  --font-sans: 'Inter', sans-serif;
+  --radius: 0.5rem;
+}
+
+ATENÇÃO: Tailwind v4 não usa tailwind.config.js para tema.
+Toda configuração vai no globals.css via @theme.
+
+---
+
+## Variáveis de ambiente (.env.local)
+
+DATABASE_URL="postgresql://piloto_user:senha@localhost:5432/piloto_db"
+BETTER_AUTH_SECRET="gerar com: openssl rand -base64 32"
+BETTER_AUTH_URL="https://seudominio.com.br"
+STRIPE_SECRET_KEY="sk_live_..."
+STRIPE_WEBHOOK_SECRET="whsec_..."
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY="pk_live_..."
+STRIPE_PREMIUM_PRICE_ID="price_..."
+NEXT_PUBLIC_APP_URL="https://seudominio.com.br"
+NODE_ENV="production"
+
+---
+
+## Deploy (VPS)
+
+OS: Ubuntu 24.04 LTS
+Node: 22.14.0 via nvm
+Process manager: PM2 5.4.3
+Reverse proxy: Nginx 1.27
+SSL: Certbot (Let's Encrypt)
+Porta interna: 3000 → exposta via Nginx na 443
+Banco: PostgreSQL 17.4 em localhost (porta 5432 fechada externamente)
+Deploy: git pull → npm ci → npm run build → drizzle-kit migrate → pm2 reload
+
+---
+
+## Observações de compatibilidade (Windows + React 19 + Tailwind v4)
+
+### .npmrc obrigatório na raiz do projeto
+Criar o arquivo .npmrc com o conteúdo:
+legacy-peer-deps=true
+
+Motivo: shadcn/ui com React 19 gera conflito de peer deps sem essa flag.
+Isso evita prompts interativos e erros de instalação no Windows.
+
+### Dependências extras obrigatórias (instalar junto com as demais)
+npm install tw-animate-css class-variance-authority
+
+Motivo:
+- globals.css importa tw-animate-css (animações do shadcn)
+- componentes shadcn usam cva() do class-variance-authority
+- não são instaladas automaticamente pelo shadcn init no Tailwind v4
+
+### src/lib/utils.ts (criar manualmente se não existir)
+import { clsx, type ClassValue } from "clsx"
+import { twMerge } from "tailwind-merge"
+export function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs))
+}
+
+Motivo: o shadcn init pode falhar parcialmente no registry do Tailwind v4
+e não criar esse arquivo. Sempre verificar se existe após o init.
+
+### Adicionar componentes shadcn no Windows com React 19
+Usar este formato para evitar prompt interativo:
+cmd /c "echo.| npx shadcn@2.5.0 add <nome> -y -o"
+
+Ou com flag --force no npm quando solicitado:
+npm install <pacote> --force
+
+### shadcn init no Tailwind v4
+O comando npx shadcn@2.5.0 init pode registrar erros de parse no registry.
+Isso é esperado — o init completa mesmo assim e atualiza o globals.css corretamente.
+Se o tema estranhar, repetir o init com CLI mais nova.
+
+### CVE no Next.js 15.2.4
+O npm pode avisar sobre CVE nessa versão. Ignorar — a versão 15.2.4
+foi definida intencionalmente no PRD do projeto. Não fazer upgrade de patch
+sem validar compatibilidade com o restante da stack.
