@@ -1,10 +1,11 @@
 import type { NextConfig } from "next";
 import { withSentryConfig } from "@sentry/nextjs";
 
+/** Se ainda aparecer CSP “antiga” no browser, pode haver outra fonte (ex.: regra no Cloudflare) em paralelo a estes headers. */
 function buildContentSecurityPolicy(): string {
   const directives: string[] = [
     "default-src 'self'",
-    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com https://m.stripe.network",
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com https://m.stripe.network https://static.cloudflareinsights.com",
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob: https:",
     "font-src 'self' data:",
@@ -20,6 +21,8 @@ function buildContentSecurityPolicy(): string {
     "'self'",
     "https://api.stripe.com",
     "https://*.stripe.com",
+    "https://cloudflareinsights.com",
+    "https://*.cloudflareinsights.com",
     "https://*.ingest.sentry.io",
     "https://*.ingest.us.sentry.io",
     "https://*.sentry.io",
