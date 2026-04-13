@@ -168,6 +168,14 @@ export function MaintenancePushPanel({ className }: { className?: string }) {
   }
 
   async function sendTest() {
+    if (!status?.serverReady) {
+      toast.error(
+        process.env.NODE_ENV === "development"
+          ? "Servidor sem push configurado (VAPID)."
+          : "As notificações push não estão disponíveis no momento.",
+      );
+      return;
+    }
     setBusy(true);
     try {
       const res = await fetch("/api/push/test", {
@@ -234,51 +242,9 @@ export function MaintenancePushPanel({ className }: { className?: string }) {
     );
   }
 
-  if (!status?.serverReady) {
-    const isDev = process.env.NODE_ENV === "development";
-    return (
-      <div
-        className={cn(
-          "rounded-xl border px-4 py-3 text-sm",
-          isDev
-            ? "border-amber-200 bg-amber-50 text-amber-950"
-            : "border-border bg-muted/40 text-muted-foreground",
-          className,
-        )}
-      >
-        {isDev ? (
-          <>
-            Notificações push ainda não estão disponíveis: confira no{" "}
-            <code className="rounded bg-amber-100/80 px-1 text-xs">
-              .env.local
-            </code>{" "}
-            as variáveis{" "}
-            <code className="rounded bg-amber-100/80 px-1 text-xs">
-              VAPID_PUBLIC_KEY
-            </code>
-            ,{" "}
-            <code className="rounded bg-amber-100/80 px-1 text-xs">
-              VAPID_PRIVATE_KEY
-            </code>{" "}
-            e{" "}
-            <code className="rounded bg-amber-100/80 px-1 text-xs">
-              VAPID_SUBJECT
-            </code>{" "}
-            (ex. <code className="text-xs">mailto:voce@email.com</code>). Sem
-            espaço ao redor do <code className="text-xs">=</code>. Depois de
-            salvar, <strong>reinicie o npm run dev</strong>.
-          </>
-        ) : (
-          <>
-            As notificações push por lembretes de manutenção ainda não estão
-            ativas neste servidor. O resto do app funciona normalmente; só os
-            alertas no dispositivo não estarão disponíveis até o serviço ser
-            configurado.
-          </>
-        )}
-      </div>
-    );
-  }
+  const isDev = process.env.NODE_ENV === "development";
+  const serverPushAvailable = status?.serverReady === true;
+  const statusLoadFailed = status === null;
 
   return (
     <div
@@ -287,6 +253,47 @@ export function MaintenancePushPanel({ className }: { className?: string }) {
         className,
       )}
     >
+      {(statusLoadFailed || !serverPushAvailable) && (
+        <div
+          className={cn(
+            "mb-3 rounded-lg border px-3 py-2 text-sm",
+            statusLoadFailed
+              ? "border-destructive/30 bg-destructive/5 text-destructive"
+              : isDev
+                ? "border-amber-200 bg-amber-50 text-amber-950"
+                : "border-border bg-muted/50 text-muted-foreground",
+          )}
+        >
+          {statusLoadFailed ? (
+            "Não foi possível carregar o estado das notificações. Atualize a página ou tente mais tarde."
+          ) : isDev ? (
+            <>
+              Push no servidor ainda não configurado: no{" "}
+              <code className="rounded bg-amber-100/80 px-1 text-xs">
+                .env.local
+              </code>{" "}
+              defina{" "}
+              <code className="rounded bg-amber-100/80 px-1 text-xs">
+                VAPID_PUBLIC_KEY
+              </code>
+              ,{" "}
+              <code className="rounded bg-amber-100/80 px-1 text-xs">
+                VAPID_PRIVATE_KEY
+              </code>{" "}
+              e{" "}
+              <code className="rounded bg-amber-100/80 px-1 text-xs">
+                VAPID_SUBJECT
+              </code>{" "}
+              (ex. <code className="text-xs">mailto:voce@email.com</code>). Sem
+              espaço ao redor do <code className="text-xs">=</code>. Reinicie o{" "}
+              <strong>npm run dev</strong>.
+            </>
+          ) : (
+            "As notificações push neste servidor ainda não estão disponíveis. Os botões “Ativar” e “Testar” ficam desativados até a configuração estar completa."
+          )}
+        </div>
+      )}
+
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex gap-3">
           <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-black text-white">
@@ -313,7 +320,12 @@ export function MaintenancePushPanel({ className }: { className?: string }) {
                 type="button"
                 variant="outline"
                 size="sm"
-                disabled={busy}
+                disabled={busy || !serverPushAvailable}
+                title={
+                  !serverPushAvailable
+                    ? "Push não configurado no servidor"
+                    : undefined
+                }
                 onClick={() => void sendTest()}
                 className="gap-1.5"
               >
@@ -339,7 +351,12 @@ export function MaintenancePushPanel({ className }: { className?: string }) {
               type="button"
               size="sm"
               className="bg-black font-bold text-white hover:bg-black/90"
-              disabled={busy}
+              disabled={busy || !serverPushAvailable}
+              title={
+                !serverPushAvailable
+                  ? "Push não configurado no servidor"
+                  : undefined
+              }
               onClick={() => void enablePush()}
             >
               {busy ? (
