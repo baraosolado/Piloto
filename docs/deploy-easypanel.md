@@ -66,6 +66,8 @@ As migrations **não** criam o utilizador `dev@piloto.local` nem senhas de desen
 
 **Alternativa manual** (sem variável no container): a partir de uma máquina com `DATABASE_URL`, `npm run db:bootstrap:super-admin` com os mesmos `INITIAL_*` no ambiente ou `.env.local`.
 
+**Erro `relation "users" does not exist` após migrate OK:** costuma ser `DATABASE_URL` errada no contentor (ex.: dotenv a sobrescrever com ficheiro vazio) ou journal `__drizzle_migrations` dessincronizado. Com a imagem atual, `drizzle.config` e o bootstrap não usam `override: true` em `.env.local`. Se persistir: na consola SQL do Postgres, `DROP TABLE IF EXISTS __drizzle_migrations CASCADE;` e reinicie a app para o entrypoint voltar a correr **todas** as migrations (só com backup / BD descartável).
+
 **Reset da BD no contentor (após rebuild da imagem):** o Dockerfile inclui `scripts/reset-db-dev.mjs`. Com shell/exec no serviço da app: `CONFIRM_RESET_DB=yes npm run db:reset` e depois `npm run db:migrate` (ou reiniciar o serviço para o entrypoint aplicar migrations). Sem rebuild, o ficheiro não existe em `/app/scripts/`.
 
 **Crons a correr dentro do mesmo container** (Easypanel “Run in container”): use `CRON_BASE_URL=http://127.0.0.1:3000` (ou a `PORT` exposta) para evitar hairpin DNS para o domínio público.

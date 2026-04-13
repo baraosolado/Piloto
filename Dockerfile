@@ -63,6 +63,7 @@ COPY --from=builder /app/tsconfig.json ./tsconfig.json
 COPY --from=builder /app/src/db ./src/db
 COPY scripts/docker-entrypoint.sh ./scripts/docker-entrypoint.sh
 COPY scripts/run-cron-tasks.sh ./scripts/run-cron-tasks.sh
+COPY scripts/load-dotenv.mjs ./scripts/load-dotenv.mjs
 COPY scripts/bootstrap-super-admin.mjs ./scripts/bootstrap-super-admin.mjs
 COPY scripts/reset-db-dev.mjs ./scripts/reset-db-dev.mjs
 RUN chmod +x ./scripts/docker-entrypoint.sh ./scripts/run-cron-tasks.sh \

@@ -1,13 +1,12 @@
-import { config } from "dotenv";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import pg from "pg";
+import { loadAppEnv } from "./load-dotenv.mjs";
 
 const { Pool } = pg;
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
-config({ path: path.join(root, ".env") });
-config({ path: path.join(root, ".env.local"), override: true });
+loadAppEnv();
 
 const url = process.env.DATABASE_URL;
 if (!url) {

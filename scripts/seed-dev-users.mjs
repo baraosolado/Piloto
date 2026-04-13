@@ -10,17 +10,16 @@
  * e-mail no BD for antigo, ex. motorista@piloto.local com o mesmo id da migration 0002).
  */
 
-import { config } from "dotenv";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import pg from "pg";
 import { hashPassword } from "better-auth/crypto";
+import { loadAppEnv } from "./load-dotenv.mjs";
 
 const { Pool } = pg;
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
-config({ path: path.join(root, ".env") });
-config({ path: path.join(root, ".env.local"), override: true });
+loadAppEnv();
 
 /** IDs fixos (iguais à migration `0002_seed_dev_users_piloto.sql`) */
 const DEV_USERS = [

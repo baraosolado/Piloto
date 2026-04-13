@@ -4,15 +4,14 @@
  * Default: dev@copilote.local → emersonlincoln4@gmail.com
  */
 
-import { config } from "dotenv";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import pg from "pg";
+import { loadAppEnv } from "./load-dotenv.mjs";
 
 const { Pool } = pg;
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
-config({ path: path.join(root, ".env") });
-config({ path: path.join(root, ".env.local"), override: true });
+loadAppEnv();
 
 const fromEmail = (process.argv[2] || "dev@copilote.local").toLowerCase();
 const toEmail = (process.argv[3] || "emersonlincoln4@gmail.com").toLowerCase();

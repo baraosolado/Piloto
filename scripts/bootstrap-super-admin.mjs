@@ -13,18 +13,17 @@
  * Manual: `npm run db:bootstrap:super-admin` (DATABASE_URL + INITIAL_* no .env ou ambiente).
  */
 
-import { config } from "dotenv";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { randomUUID } from "node:crypto";
 import pg from "pg";
 import { hashPassword } from "better-auth/crypto";
+import { loadAppEnv } from "./load-dotenv.mjs";
 
 const { Pool } = pg;
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
-config({ path: path.join(root, ".env") });
-config({ path: path.join(root, ".env.local"), override: true });
+loadAppEnv();
 
 async function main() {
   const url = process.env.DATABASE_URL;
@@ -111,6 +110,11 @@ async function main() {
     const err = /** @type {Error & { code?: string }} */ (e);
     console.error("[bootstrap-super-admin] Falha:", err.message);
     if (err.code) console.error("  Código:", err.code);
+    if (err.code === "42P01") {
+      console.error(
+        "[bootstrap-super-admin] A tabela «users» não existe — confirme DATABASE_URL (mesma BD que o migrate) e rode «npm run db:migrate». Se o migrate diz OK mas isto falha, a tabela «__drizzle_migrations» pode estar dessincronizada (repare a BD ou volte a aplicar migrations).",
+      );
+    }
     return 1;
   } finally {
     await pool.end();
