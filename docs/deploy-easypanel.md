@@ -66,6 +66,8 @@ As migrations **não** criam o utilizador `dev@piloto.local` nem senhas de desen
 
 **Alternativa manual** (sem variável no container): a partir de uma máquina com `DATABASE_URL`, `npm run db:bootstrap:super-admin` com os mesmos `INITIAL_*` no ambiente ou `.env.local`.
 
+**Reset da BD no contentor (após rebuild da imagem):** o Dockerfile inclui `scripts/reset-db-dev.mjs`. Com shell/exec no serviço da app: `CONFIRM_RESET_DB=yes npm run db:reset` e depois `npm run db:migrate` (ou reiniciar o serviço para o entrypoint aplicar migrations). Sem rebuild, o ficheiro não existe em `/app/scripts/`.
+
 **Crons a correr dentro do mesmo container** (Easypanel “Run in container”): use `CRON_BASE_URL=http://127.0.0.1:3000` (ou a `PORT` exposta) para evitar hairpin DNS para o domínio público.
 - Push: `VAPID_*`, etc.
 - `SECURITY_LOG_INGEST_URL` / `SECURITY_LOG_INGEST_TOKEN`
