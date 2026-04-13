@@ -71,6 +71,13 @@
       "when": 1776280000000,
       "tag": "0009_vehicle_powertrain",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1776400000000,
+      "tag": "0010_strip_migration_seed_users",
+      "breakpoints": true
     }
   ]
 }

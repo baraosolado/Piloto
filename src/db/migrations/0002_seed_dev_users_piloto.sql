@@ -1,7 +1,7 @@
--- Contas de desenvolvimento (Better Auth: credential + senha em accounts.password)
--- Login: /login
---   emersonlincoln4@gmail.com / CopiloteDev2026!
---   motorista@copilote.local / CopiloteUser2026!
+-- Contas de desenvolvimento (Better Auth: credential + senha em accounts.password).
+-- A migration `0010_strip_migration_seed_users` remove estes registos após aplicar o histórico,
+-- para produção não ficar com utilizadores de dev; em local: `npm run db:seed:dev-users`.
+-- Referência dev (apenas documentação): emersonlincoln4@gmail.com / CopiloteDev2026! ; motorista@copilote.local / CopiloteUser2026!
 
 DELETE FROM users WHERE email IN ('dev@piloto.local', 'dev@copilote.local', 'gamejogo123456@gmail.com', 'emersonlincoln4@gmail.com', 'motorista@piloto.local', 'motorista@copilote.local');
 

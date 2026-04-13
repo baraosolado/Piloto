@@ -8,6 +8,13 @@ Este guia alinha o repositório ao fluxo **Git → build Docker → container** 
 2. Copie a **connection string** (`postgresql://...`) para `DATABASE_URL` na app.
 3. Em Docker na mesma stack, o host costuma ser o **nome interno** do serviço (ex.: `postgres`), **não** `localhost`.
 
+### Postgres novo (primeira vez ou após destruir o antigo)
+
+1. Crie o Postgres, copie `DATABASE_URL` para a app (runtime + build arg).
+2. No primeiro arranque, o entrypoint aplica **todas** as migrations. A migration `0010_strip_migration_seed_users` **remove** as duas contas de dev que a migration antiga `0002` ainda insere no histórico — **não ficam utilizadores na BD** por causa do repositório.
+3. Crie o primeiro administrador **só** com as variáveis do painel: `BOOTSTRAP_SUPER_ADMIN=1`, `INITIAL_SUPER_ADMIN_EMAIL`, `INITIAL_SUPER_ADMIN_PASSWORD` (mín. 12 caracteres). Depois do primeiro login, remova essas variáveis sensíveis.
+4. Nada no código “telefona para casa” nem cria utilizadores em produção além desse bootstrap quando o activar.
+
 ## 2. App (Dockerfile do repositório)
 
 1. Novo serviço → **App** → repositório Git → **Dockerfile** na raiz.
