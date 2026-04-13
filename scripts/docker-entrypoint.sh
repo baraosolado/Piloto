@@ -9,6 +9,7 @@ if [ "${SKIP_DB_MIGRATE:-0}" != "1" ]; then
   else
     echo "[docker-entrypoint] Aplicando migrations (drizzle-kit)..."
     ./node_modules/.bin/drizzle-kit migrate
+    node scripts/verify-db-schema.mjs
   fi
 fi
 

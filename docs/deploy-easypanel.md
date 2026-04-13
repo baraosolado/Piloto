@@ -66,7 +66,7 @@ As migrations **não** criam o utilizador `dev@piloto.local` nem senhas de desen
 
 **Alternativa manual** (sem variável no container): a partir de uma máquina com `DATABASE_URL`, `npm run db:bootstrap:super-admin` com os mesmos `INITIAL_*` no ambiente ou `.env.local`.
 
-**Erro `relation "users" does not exist` após migrate OK:** costuma ser `DATABASE_URL` errada no contentor (ex.: dotenv a sobrescrever com ficheiro vazio) ou journal `__drizzle_migrations` dessincronizado. Com a imagem atual, `drizzle.config` e o bootstrap não usam `override: true` em `.env.local`. Se persistir: na consola SQL do Postgres, `DROP TABLE IF EXISTS __drizzle_migrations CASCADE;` e reinicie a app para o entrypoint voltar a correr **todas** as migrations (só com backup / BD descartável).
+**Erro `relation "users" does not exist` após migrate OK:** o entrypoint corre `node scripts/verify-db-schema.mjs` — se falhar, o contentor não arranca o Next (evita login em loop). Causa típica: journal `__drizzle_migrations` dessincronizado (migrate “OK” mas tabelas em falta). Na consola SQL do Postgres (só com backup / BD descartável): `DROP TABLE IF EXISTS public.__drizzle_migrations CASCADE;` e reinicie o serviço. **Não precisa de `.env.local` no Easypanel** — basta `DATABASE_URL` (e opcionalmente `.env`) no painel; ficheiros em `/app` só são lidos se existirem.
 
 **Reset da BD no contentor (após rebuild da imagem):** o Dockerfile inclui `scripts/reset-db-dev.mjs`. Com shell/exec no serviço da app: `CONFIRM_RESET_DB=yes npm run db:reset` e depois `npm run db:migrate` (ou reiniciar o serviço para o entrypoint aplicar migrations). Sem rebuild, o ficheiro não existe em `/app/scripts/`.
 

@@ -1,10 +1,14 @@
+import fs from "node:fs";
+import path from "node:path";
 import { config as loadEnv } from "dotenv";
 import { defineConfig } from "drizzle-kit";
 
-// `.env.local` primeiro; nunca `override: true` — no contentor não pode apagar
-// `DATABASE_URL` já definida pelo Easypanel (ficheiros vazios / inject env (0)).
-loadEnv({ path: ".env.local" });
-loadEnv({ path: ".env" });
+const dotenvOpts = { quiet: true };
+const cwd = process.cwd();
+const envLocal = path.join(cwd, ".env.local");
+const envFile = path.join(cwd, ".env");
+if (fs.existsSync(envLocal)) loadEnv({ path: envLocal, ...dotenvOpts });
+if (fs.existsSync(envFile)) loadEnv({ path: envFile, ...dotenvOpts });
 
 export default defineConfig({
   schema: "./src/db/schema.ts",
