@@ -181,7 +181,7 @@ export function RelatoriosClient({
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
 
-  const { preview, periodoAnterior, hasRides } = summary;
+  const { preview, hasRides } = summary;
   const q = useMemo(() => buildReportQuery(period), [period]);
 
   const monthOptions = useMemo(() => {
