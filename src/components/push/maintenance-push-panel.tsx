@@ -289,7 +289,7 @@ export function MaintenancePushPanel({ className }: { className?: string }) {
               <strong>npm run dev</strong>.
             </>
           ) : (
-            "As notificações push neste servidor ainda não estão disponíveis. Os botões “Ativar” e “Testar” ficam desativados até a configuração estar completa."
+            "As notificações push neste servidor ainda não estão disponíveis. O botão “Ativar” fica desativado até a configuração estar completa."
           )}
         </div>
       )}
@@ -316,26 +316,28 @@ export function MaintenancePushPanel({ className }: { className?: string }) {
         <div className="flex flex-wrap gap-2">
           {subscribed ? (
             <>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                disabled={busy || !serverPushAvailable}
-                title={
-                  !serverPushAvailable
-                    ? "Push não configurado no servidor"
-                    : undefined
-                }
-                onClick={() => void sendTest()}
-                className="gap-1.5"
-              >
-                {busy ? (
-                  <Loader2 className="size-4 animate-spin" />
-                ) : (
-                  <Send className="size-4" />
-                )}
-                Testar
-              </Button>
+              {isDev ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={busy || !serverPushAvailable}
+                  title={
+                    !serverPushAvailable
+                      ? "Push não configurado no servidor"
+                      : undefined
+                  }
+                  onClick={() => void sendTest()}
+                  className="gap-1.5"
+                >
+                  {busy ? (
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : (
+                    <Send className="size-4" />
+                  )}
+                  Testar
+                </Button>
+              ) : null}
               <Button
                 type="button"
                 variant="secondary"

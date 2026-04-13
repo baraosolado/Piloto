@@ -12,6 +12,19 @@ import {
 export const dynamic = "force-dynamic";
 
 export async function POST() {
+  if (process.env.NODE_ENV === "production") {
+    return NextResponse.json(
+      {
+        data: null,
+        error: {
+          code: "NOT_AVAILABLE",
+          message: "Teste de push só está disponível em desenvolvimento.",
+        },
+      },
+      { status: 403 },
+    );
+  }
+
   const auth = await requireSession();
   if ("response" in auth) return auth.response;
 
