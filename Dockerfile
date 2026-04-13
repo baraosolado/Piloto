@@ -63,6 +63,7 @@ COPY --from=builder /app/tsconfig.json ./tsconfig.json
 COPY --from=builder /app/src/db ./src/db
 COPY scripts/docker-entrypoint.sh ./scripts/docker-entrypoint.sh
 COPY scripts/run-cron-tasks.sh ./scripts/run-cron-tasks.sh
+COPY scripts/bootstrap-super-admin.mjs ./scripts/bootstrap-super-admin.mjs
 RUN chmod +x ./scripts/docker-entrypoint.sh ./scripts/run-cron-tasks.sh \
   && chown -R nextjs:nodejs ./src/db ./scripts ./drizzle.config.ts ./tsconfig.json
 

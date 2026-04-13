@@ -43,6 +43,22 @@ Opcionais:
 
 - `SKIP_DB_MIGRATE=1` — só se migrar a BD **fora** do container (por defeito o entrypoint corre `drizzle-kit migrate`).
 
+### Primeiro `super_admin` (BD sem contas de dev)
+
+As migrations **não** criam o utilizador `dev@piloto.local` nem senhas de desenvolvimento. Em produção o melhor fluxo é:
+
+1. **Na primeira subida do container**, definir (Easypanel → Environment):
+   - `BOOTSTRAP_SUPER_ADMIN=1`
+   - `INITIAL_SUPER_ADMIN_EMAIL` — e-mail real do dono da operação
+   - `INITIAL_SUPER_ADMIN_PASSWORD` — senha forte (mínimo 12 caracteres)
+   - Opcional: `INITIAL_SUPER_ADMIN_NAME`
+2. O `docker-entrypoint.sh` corre `drizzle-kit migrate` e, em seguida, `node scripts/bootstrap-super-admin.mjs` **só se** `BOOTSTRAP_SUPER_ADMIN=1`. O script é **idempotente**: se já existir qualquer `users.role = 'super_admin'`, não faz nada.
+3. Após o primeiro login com sucesso, **remover** `BOOTSTRAP_SUPER_ADMIN`, `INITIAL_SUPER_ADMIN_EMAIL` e `INITIAL_SUPER_ADMIN_PASSWORD` do painel (não deixar a senha inicial nas variáveis do serviço).
+
+**Alterar e-mail e senha depois:** o Better Auth já suporta **recuperação de senha** (`/recuperar-senha`) e **troca de e-mail** com confirmação por link (Resend). Em **Configurações → Perfil** o utilizador altera nome/cidade; e-mail/senha seguem os fluxos do auth (e-mail transacional requer `RESEND_API_KEY` em produção).
+
+**Alternativa manual** (sem variável no container): a partir de uma máquina com `DATABASE_URL`, `npm run db:bootstrap:super-admin` com os mesmos `INITIAL_*` no ambiente ou `.env.local`.
+
 **Crons a correr dentro do mesmo container** (Easypanel “Run in container”): use `CRON_BASE_URL=http://127.0.0.1:3000` (ou a `PORT` exposta) para evitar hairpin DNS para o domínio público.
 - Push: `VAPID_*`, etc.
 - `SECURITY_LOG_INGEST_URL` / `SECURITY_LOG_INGEST_TOKEN`
