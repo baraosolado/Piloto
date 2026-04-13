@@ -6,6 +6,8 @@
 
 FROM node:22-alpine AS deps
 WORKDIR /app
+# Evita repetir "New major version of npm available" nos logs do build (Easypanel/CI).
+ENV NPM_CONFIG_UPDATE_NOTIFIER=false
 RUN apk add --no-cache libc6-compat
 # O lock foi gerado com legacy-peer-deps (ver .npmrc). Sem esta flag, `npm ci` quebra no Linux/Docker.
 COPY package.json package-lock.json ./
@@ -13,6 +15,7 @@ RUN npm ci --legacy-peer-deps
 
 FROM node:22-alpine AS builder
 WORKDIR /app
+ENV NPM_CONFIG_UPDATE_NOTIFIER=false
 RUN apk add --no-cache libc6-compat
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
@@ -45,6 +48,7 @@ RUN npm prune --omit=dev
 FROM node:22-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
+ENV NPM_CONFIG_UPDATE_NOTIFIER=false
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=3000
 
