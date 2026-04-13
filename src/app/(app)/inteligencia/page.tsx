@@ -2,15 +2,18 @@ import { PremiumGate } from "@/components/shared/premium-gate";
 import { InteligenciaPremiumView } from "@/components/inteligencia/inteligencia-premium-view";
 import { getInteligenciaPremiumData } from "@/lib/inteligencia-data";
 import { requireSession } from "@/lib/get-session";
+import { loadForAppUser } from "@/lib/load-for-app-user";
 import { getEffectivePlan } from "@/lib/plan-limits";
 
 export default async function InteligenciaPage() {
   const session = await requireSession();
   const userId = session.user.id;
-  const plan = await getEffectivePlan(userId, session.user.email);
-  const isPremium = plan === "premium";
 
-  const data = await getInteligenciaPremiumData(userId);
+  const { isPremium, data } = await loadForAppUser(userId, async () => {
+    const plan = await getEffectivePlan(userId, session.user.email);
+    const data = await getInteligenciaPremiumData(userId);
+    return { isPremium: plan === "premium", data };
+  });
 
   return (
     <div className="mx-auto max-w-5xl">
@@ -23,10 +26,7 @@ export default async function InteligenciaPage() {
         </p>
       </header>
 
-      <PremiumGate
-        isPremium={isPremium}
-        feature="Inteligência financeira"
-      >
+      <PremiumGate isPremium={isPremium} feature="Inteligência financeira">
         <InteligenciaPremiumView data={data} />
       </PremiumGate>
     </div>

@@ -6,12 +6,12 @@ export function LandingFooter() {
     <footer className="mt-auto bg-zinc-50 px-6 py-12">
       <div className="mx-auto grid w-full max-w-7xl grid-cols-1 items-start gap-8 md:grid-cols-2 lg:flex lg:justify-between">
         <div className="flex flex-col gap-4">
-          <div className="text-xl font-black text-black">Piloto</div>
+          <div className="text-xl font-black text-black">Copilote</div>
           <p className="max-w-xs text-sm tracking-tight text-gray-500">
             Performance financeira para motoristas de aplicativo.
           </p>
           <p className="text-sm tracking-tight text-gray-400">
-            © {year} Piloto.
+            © {year} Copilote.
           </p>
         </div>
         <div className="flex flex-wrap gap-x-12 gap-y-6">

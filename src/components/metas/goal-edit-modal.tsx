@@ -47,31 +47,49 @@ export function GoalEditModal({
   ridesThisMonth,
   onSaved,
 }: GoalEditModalProps) {
-  const [value, setValue] = useState(
-    initialTarget ?? 3000,
+  const clampTarget = (n: number) =>
+    Math.min(MAX, Math.max(MIN, n));
+
+  const [value, setValue] = useState(() =>
+    clampTarget(initialTarget ?? 3000),
+  );
+  /** Texto do campo numérico: separado do valor para permitir digitar/apagar sem travar no mínimo. */
+  const [inputText, setInputText] = useState(() =>
+    String(clampTarget(initialTarget ?? 3000)),
   );
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (!open) return;
-    setValue(
-      Math.min(
-        MAX,
-        Math.max(MIN, initialTarget ?? 3000),
-      ),
-    );
+    const v = clampTarget(initialTarget ?? 3000);
+    setValue(v);
+    setInputText(String(v));
   }, [open, initialTarget]);
 
+  /** Número usado nas prévias: digitação em andamento ou valor confirmado. */
+  function previewTarget(): number {
+    const raw = inputText.replace(/\D/g, "");
+    if (raw === "") return value;
+    const n = Number.parseInt(raw, 10);
+    if (Number.isNaN(n)) return value;
+    return Math.min(MAX, Math.max(0, n));
+  }
+
+  const pt = previewTarget();
   const previewDaily =
-    weekdaysInMonth > 0 ? value / weekdaysInMonth : null;
+    weekdaysInMonth > 0 ? pt / weekdaysInMonth : null;
   const previewRide =
-    ridesThisMonth > 0 ? value / ridesThisMonth : null;
+    ridesThisMonth > 0 ? pt / ridesThisMonth : null;
+
+  function commitFromInput(): number {
+    const raw = inputText.replace(/\D/g, "");
+    if (raw === "") return clampTarget(MIN);
+    const n = Number.parseInt(raw, 10);
+    return clampTarget(Number.isNaN(n) ? MIN : n);
+  }
 
   async function save() {
-    if (value < MIN || value > MAX) {
-      toast.error(`Valor entre ${brl.format(MIN)} e ${brl.format(MAX)}.`);
-      return;
-    }
+    const committed = commitFromInput();
     setSaving(true);
     try {
       const res = await fetch("/api/goals", {
@@ -79,7 +97,7 @@ export function GoalEditModal({
         credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          monthlyTarget: value,
+          monthlyTarget: committed,
           month,
           year,
         }),
@@ -119,7 +137,7 @@ export function GoalEditModal({
               <div className="flex items-end justify-between gap-2">
                 <Label htmlFor="goal-val">Valor da meta</Label>
                 <span className="text-2xl font-black tabular-nums">
-                  {brl.format(value)}
+                  {brl.format(pt)}
                 </span>
               </div>
               <input
@@ -129,19 +147,31 @@ export function GoalEditModal({
                 max={MAX}
                 step={STEP}
                 value={value}
-                onChange={(e) => setValue(Number(e.target.value))}
+                onChange={(e) => {
+                  const v = Number(e.target.value);
+                  setValue(v);
+                  setInputText(String(v));
+                }}
                 className="h-3 w-full cursor-pointer accent-black"
               />
               <Input
                 id="goal-val"
                 inputMode="numeric"
-                value={String(value)}
+                value={inputText}
                 onChange={(e) => {
-                  const raw = e.target.value.replace(/\D/g, "");
-                  if (raw === "") return;
-                  const n = Number.parseInt(raw, 10);
-                  if (!Number.isNaN(n))
-                    setValue(Math.min(MAX, Math.max(MIN, n)));
+                  setInputText(e.target.value.replace(/\D/g, ""));
+                }}
+                onBlur={() => {
+                  if (inputText.trim() === "") {
+                    const v = clampTarget(MIN);
+                    setValue(v);
+                    setInputText(String(v));
+                    return;
+                  }
+                  const n = Number.parseInt(inputText, 10);
+                  const v = clampTarget(Number.isNaN(n) ? MIN : n);
+                  setValue(v);
+                  setInputText(String(v));
                 }}
                 className="font-bold"
               />

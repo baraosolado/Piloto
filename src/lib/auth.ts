@@ -3,6 +3,8 @@ import { betterAuth } from "better-auth";
 import { APIError } from "better-auth/api";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { nextCookies } from "better-auth/next-js";
+import { admin } from "better-auth/plugins";
+import { adminAc, userAc } from "better-auth/plugins/admin/access";
 import { db } from "@/db";
 import * as schema from "@/db/schema";
 import {
@@ -142,5 +144,18 @@ export const auth = betterAuth({
     window: 15 * 60,
     max: 5,
   },
-  plugins: [nextCookies()],
+  plugins: [
+    nextCookies(),
+    admin({
+      defaultRole: "user",
+      adminRoles: ["super_admin"],
+      roles: {
+        super_admin: adminAc,
+        user: userAc,
+      },
+      impersonationSessionDuration: 60 * 60 * 3,
+      bannedUserMessage:
+        "Conta inactiva. Se precisar de ajuda, contacte o suporte Copilote.",
+    }),
+  ],
 });

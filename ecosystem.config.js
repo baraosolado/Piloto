@@ -1,12 +1,12 @@
 /**
  * PM2 — produção no VPS
  * Uso: pm2 start ecosystem.config.js --env production
- *      pm2 reload piloto --update-env
+ *      pm2 reload copilote --update-env
  */
 module.exports = {
   apps: [
     {
-      name: "piloto",
+      name: "copilote",
       script: "node_modules/.bin/next",
       args: "start",
       cwd: __dirname,

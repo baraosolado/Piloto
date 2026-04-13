@@ -13,7 +13,7 @@ export default function NotFound() {
           <ArrowLeft className="size-6" strokeWidth={2} aria-hidden />
         </Link>
         <span className="text-xl font-black tracking-tighter text-black uppercase">
-          Piloto
+          Copilote
         </span>
         <div className="w-10 shrink-0" aria-hidden />
       </header>
@@ -55,7 +55,7 @@ export default function NotFound() {
               <ChevronRight className="size-5" strokeWidth={2} aria-hidden />
             </Link>
             <a
-              href="mailto:?subject=%5BPiloto%5D%20Reportar%20problema%20(404)&body=Descreva%20o%20que%20voc%C3%AA%20tentou%20acessar%3A%20"
+              href="mailto:?subject=%5BCopilote%5D%20Reportar%20problema%20(404)&body=Descreva%20o%20que%20voc%C3%AA%20tentou%20acessar%3A%20"
               className="w-full rounded-lg border-0 bg-transparent py-4 px-8 text-sm font-bold tracking-widest text-[#474747] uppercase transition-all hover:bg-[#f3f3f3] active:scale-95"
             >
               Reportar um problema

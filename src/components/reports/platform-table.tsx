@@ -33,12 +33,24 @@ function platformBadgeClass(key: PlatformRow["platformKey"]): string {
   }
 }
 
-export function PlatformTable({ rows }: { rows: PlatformRow[] }) {
+export function PlatformTable({
+  rows,
+  visual = "default",
+}: {
+  rows: PlatformRow[];
+  visual?: "default" | "cockpit";
+}) {
   const display = rows.filter((r) => r.corridas > 0);
+  const cockpit = visual === "cockpit";
 
   if (display.length === 0) {
     return (
-      <p className="text-sm text-muted-foreground">
+      <p
+        className={cn(
+          "text-sm",
+          cockpit ? "text-[#3b3b3b]" : "text-muted-foreground",
+        )}
+      >
         Nenhuma corrida por plataforma neste período.
       </p>
     );
@@ -48,19 +60,67 @@ export function PlatformTable({ rows }: { rows: PlatformRow[] }) {
     <div className="overflow-x-auto">
       <Table>
         <TableHeader>
-          <TableRow className="hover:bg-transparent">
-            <TableHead>Plataforma</TableHead>
-            <TableHead className="text-right">Corridas</TableHead>
-            <TableHead className="text-right">Faturamento</TableHead>
-            <TableHead className="text-right">Lucro líq.</TableHead>
-            <TableHead className="text-right">Lucro/hora</TableHead>
+          <TableRow
+            className={cn(
+              "border-0 hover:bg-transparent",
+              cockpit && "bg-black",
+            )}
+          >
+            <TableHead
+              className={cn(
+                cockpit &&
+                  "rounded-tl-md py-3 text-[10px] font-bold uppercase tracking-wider text-white",
+              )}
+            >
+              Plataforma
+            </TableHead>
+            <TableHead
+              className={cn(
+                "text-right",
+                cockpit &&
+                  "py-3 text-[10px] font-bold uppercase tracking-wider text-white",
+              )}
+            >
+              Corridas
+            </TableHead>
+            <TableHead
+              className={cn(
+                "text-right",
+                cockpit &&
+                  "py-3 text-[10px] font-bold uppercase tracking-wider text-white",
+              )}
+            >
+              Faturamento
+            </TableHead>
+            <TableHead
+              className={cn(
+                "text-right",
+                cockpit &&
+                  "py-3 text-[10px] font-bold uppercase tracking-wider text-white",
+              )}
+            >
+              Lucro líq.
+            </TableHead>
+            <TableHead
+              className={cn(
+                "text-right",
+                cockpit &&
+                  "rounded-tr-md py-3 text-[10px] font-bold uppercase tracking-wider text-white",
+              )}
+            >
+              Lucro/hora
+            </TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {display.map((r) => (
+          {display.map((r, idx) => (
             <TableRow
               key={r.platform}
-              className={cn(r.isBestLucroHora && "font-bold")}
+              className={cn(
+                r.isBestLucroHora && "font-bold",
+                cockpit && idx % 2 === 1 && "bg-[#f3f3f3]",
+                cockpit && "border-0 hover:bg-[#ebebeb]",
+              )}
             >
               <TableCell>
                 <Badge
@@ -82,7 +142,7 @@ export function PlatformTable({ rows }: { rows: PlatformRow[] }) {
               <TableCell
                 className={cn(
                   "text-right tabular-nums",
-                  r.isBestLucroHora && "font-bold text-[#00A651]",
+                  r.isBestLucroHora && "font-bold text-[#006d33]",
                 )}
               >
                 {formatBRL(r.lucroPorHora)}

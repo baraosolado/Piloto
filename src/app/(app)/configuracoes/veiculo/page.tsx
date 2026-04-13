@@ -1,19 +1,24 @@
 import Link from "next/link";
 import { eq } from "drizzle-orm";
-import { db } from "@/db";
+import { getRequestDb } from "@/db/request-db";
 import { vehicles } from "@/db/schema";
 import { ConfiguracoesSubpageHeader } from "@/components/configuracoes/configuracoes-subpage-header";
 import { VeiculoSettingsForm } from "@/components/configuracoes/veiculo-settings-form";
 import { Button } from "@/components/ui/button";
 import { requireSession } from "@/lib/get-session";
+import { loadForAppUser } from "@/lib/load-for-app-user";
+import { normalizePowertrain } from "@/lib/vehicle-powertrain";
 
 export default async function ConfiguracoesVeiculoPage() {
   const session = await requireSession();
-  const [v] = await db
-    .select()
-    .from(vehicles)
-    .where(eq(vehicles.userId, session.user.id))
-    .limit(1);
+  const v = await loadForAppUser(session.user.id, async () => {
+    const [row] = await getRequestDb()
+      .select()
+      .from(vehicles)
+      .where(eq(vehicles.userId, session.user.id))
+      .limit(1);
+    return row ?? null;
+  });
 
   if (!v) {
     return (
@@ -37,6 +42,7 @@ export default async function ConfiguracoesVeiculoPage() {
         defaultValues={{
           model: v.model,
           year: v.year,
+          powertrain: normalizePowertrain(v.powertrain),
           fuelConsumption: Number(v.fuelConsumption),
           fuelPrice: Number(v.fuelPrice),
           currentOdometer: v.currentOdometer ?? 0,

@@ -17,12 +17,19 @@ export type ExpenseCategory =
 
 /** Dados de veículo necessários para custo por corrida (valores numéricos já convertidos). */
 export type Vehicle = {
-  /** Consumo médio em km/l. */
+  /**
+   * Consumo médio: km/l se `powertrain` for combustão; km/kWh se for elétrico
+   * (omitido ou `combustion` = combustão).
+   */
   fuelConsumption: number;
-  /** Preço do combustível em R$/l. */
+  /**
+   * Preço por unidade de energia: R$/l (combustão) ou R$/kWh (elétrico).
+   */
   fuelPrice: number;
   /** Depreciação estimada em R$/km. */
   depreciationPerKm: number;
+  /** `electric` altera a interpretação de consumo/preço (unidades acima). */
+  powertrain?: "combustion" | "electric";
 };
 
 /** Corrida para cálculos (valores numéricos já convertidos). */
@@ -113,7 +120,10 @@ function addUtcDays(base: Date, days: number): Date {
 }
 
 /**
- * Custo total estimado da corrida: combustível (km ÷ consumo × preço/l) + depreciação por km.
+ * Custo **estimado** da corrida ao lançar: energia (km ÷ consumo × preço por unidade) + depreciação por km.
+ * Unidade de consumo/preço depende de {@link Vehicle.powertrain} (l ou kWh).
+ * Útil na prévia da corrida e em comparativos **por viagem**. No fechamento do mês, o combustível
+ * real deve vir dos gastos (`fuel`); para não contar duas vezes, use {@link calculateRideCostForPnlAggregate}.
  *
  * @param distanceKm Distância percorrida em km.
  * @param vehicle Parâmetros do veículo.
@@ -130,6 +140,22 @@ export function calculateRideCost(
   const fuelCost = fuelLiters * vehicle.fuelPrice;
   const depreciation = distanceKm * vehicle.depreciationPerKm;
   return fuelCost + depreciation;
+}
+
+/**
+ * Custo por corrida usado no **lucro do período** (dashboard, gráfico diário, metas agregadas,
+ * inteligência, relatório): só depreciação por km. O combustível entra pelos **gastos reais**
+ * (categoria `fuel`), evitando dupla contagem com a estimativa de {@link calculateRideCost}.
+ */
+export function calculateRideCostForPnlAggregate(
+  distanceKm: number,
+  vehicle: Vehicle,
+): number {
+  if (distanceKm <= 0 || !Number.isFinite(distanceKm)) {
+    return Number.NaN;
+  }
+  const dep = distanceKm * vehicle.depreciationPerKm;
+  return Number.isFinite(dep) ? dep : Number.NaN;
 }
 
 /**
@@ -199,7 +225,7 @@ export function calculateEfficiencyScore(
     const mins = ride.durationMinutes;
     if (mins === null || mins <= 0) continue;
 
-    const cost = calculateRideCost(ride.distanceKm, vehicle);
+    const cost = calculateRideCostForPnlAggregate(ride.distanceKm, vehicle);
     if (Number.isNaN(cost)) continue;
     const profit = calculateRideProfit(ride.grossAmount, cost);
     const hours = mins / 60;
@@ -248,7 +274,7 @@ export function calculateMonthlyGoalProgress(
   let latestRide = 0;
 
   for (const ride of inMonth) {
-    const cost = calculateRideCost(ride.distanceKm, vehicle);
+    const cost = calculateRideCostForPnlAggregate(ride.distanceKm, vehicle);
     if (Number.isNaN(cost)) continue;
     totalEarned += calculateRideProfit(ride.grossAmount, cost);
     rideDates.push(ride.startedAt);
@@ -315,7 +341,7 @@ export function groupRidesByPlatform(
     bucket.gross += ride.grossAmount;
     bucket.count += 1;
 
-    const cost = calculateRideCost(ride.distanceKm, vehicle);
+    const cost = calculateRideCostForPnlAggregate(ride.distanceKm, vehicle);
     if (!Number.isNaN(cost)) {
       bucket.net += calculateRideProfit(ride.grossAmount, cost);
     }

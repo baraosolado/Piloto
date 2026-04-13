@@ -348,7 +348,7 @@ export function RecuperarSenhaClient() {
           </div>
 
           <p className="mx-auto mt-auto pt-12 text-center text-[10px] font-black tracking-[0.2em] text-black/30 uppercase">
-            Piloto • recuperação segura
+            Copilote • recuperação segura
           </p>
         </main>
       )}

@@ -1,12 +1,12 @@
 #!/bin/bash
-# scripts/deploy.sh — deploy no VPS (executar no diretório do app, ex.: /var/www/piloto)
+# scripts/deploy.sh — deploy no VPS (executar no diretório do app, ex.: /var/www/copilote)
 # Fluxo: git pull → npm ci → build → migrations → PM2
 # Uso: bash scripts/deploy.sh
 
 set -euo pipefail
 
-APP_NAME="piloto"
-APP_DIR="${APP_DIR:-/var/www/piloto}"
+APP_NAME="copilote"
+APP_DIR="${APP_DIR:-/var/www/copilote}"
 BRANCH="${BRANCH:-main}"
 
 GREEN='\033[0;32m'

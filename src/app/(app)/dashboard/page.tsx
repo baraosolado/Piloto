@@ -33,11 +33,13 @@ import {
   resolveDashboardRanges,
 } from "@/lib/dashboard-period";
 import { requireSession } from "@/lib/get-session";
+import { loadForAppUser } from "@/lib/load-for-app-user";
 import {
   calculateRideCost,
   calculateRideProfit,
   type Vehicle,
 } from "@/lib/calculations";
+import { vehicleFromVehicleRow } from "@/lib/vehicle-powertrain";
 import type { RideRow } from "@/lib/dashboard-data";
 import { DashboardOnboardingToast } from "./dashboard-onboarding-toast";
 
@@ -136,6 +138,7 @@ export default async function DashboardPage({
     customTo,
   );
 
+  return loadForAppUser(userId, async () => {
   const [
     displayName,
     vehicleRow,
@@ -155,11 +158,7 @@ export default async function DashboardPage({
   ]);
 
   const vehicleCalc: Vehicle | null = vehicleRow
-    ? {
-        fuelConsumption: Number(vehicleRow.fuelConsumption),
-        fuelPrice: Number(vehicleRow.fuelPrice),
-        depreciationPerKm: Number(vehicleRow.depreciationPerKm),
-      }
+    ? vehicleFromVehicleRow(vehicleRow)
     : null;
 
   const stats = aggregatePeriodStats(rideRows, expenseRows, vehicleCalc);
@@ -246,7 +245,7 @@ export default async function DashboardPage({
           <StatCard
             label="Lucro líquido"
             value={brl.format(stats.netProfit)}
-            hint="Após custos da corrida e gastos"
+            hint="Depreciação nas corridas; combustível e demais em Gastos"
             variant="emphasis"
           />
           <StatCard
@@ -335,7 +334,7 @@ export default async function DashboardPage({
                     Valor bruto
                   </TableHead>
                   <TableHead className="text-[10px] font-bold text-[#777777] uppercase">
-                    Lucro líquido
+                    Lucro estim.
                   </TableHead>
                   <TableHead className="text-[10px] font-bold text-[#777777] uppercase">
                     Data
@@ -390,4 +389,5 @@ export default async function DashboardPage({
       </DashboardClient>
     </>
   );
+  });
 }

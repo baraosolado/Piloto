@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { asc, eq } from "drizzle-orm";
 import { z } from "zod";
-import { db } from "@/db";
+import { getRequestDb } from "@/db/request-db";
+import { runWithAppUserId } from "@/db/run-with-app-user-id";
 import { maintenanceItems } from "@/db/schema";
-import { getSessionUserId } from "@/lib/api-session";
+import { requireSession } from "@/lib/api-session";
 import { getVehicleForUser } from "@/lib/dashboard-data";
 import { sumProvisionPerKm } from "@/lib/maintenance-computed";
 import { serializeMaintenanceItem } from "@/lib/maintenance-serialize";
@@ -23,15 +24,16 @@ const postBodySchema = z.object({
 });
 
 export async function GET() {
-  const auth = await getSessionUserId();
+  const auth = await requireSession();
   if ("response" in auth) return auth.response;
   const { userId } = auth;
 
+  return runWithAppUserId(userId, async () => {
   const vehicle = await getVehicleForUser(userId);
   const currentOdometer =
     vehicle !== null ? vehicle.currentOdometer : null;
 
-  const rows = await db
+  const rows = await getRequestDb()
     .select()
     .from(maintenanceItems)
     .where(eq(maintenanceItems.userId, userId))
@@ -56,10 +58,11 @@ export async function GET() {
     },
     error: null,
   });
+  });
 }
 
 export async function POST(request: Request) {
-  const auth = await getSessionUserId();
+  const auth = await requireSession();
   if ("response" in auth) return auth.response;
   const { userId } = auth;
 
@@ -92,7 +95,8 @@ export async function POST(request: Request) {
   }
 
   const d = parsed.data;
-  const [inserted] = await db
+  return runWithAppUserId(userId, async () => {
+  const [inserted] = await getRequestDb()
     .insert(maintenanceItems)
     .values({
       userId,
@@ -116,5 +120,6 @@ export async function POST(request: Request) {
       item: serializeMaintenanceItem(inserted, currentOdometer),
     },
     error: null,
+  });
   });
 }

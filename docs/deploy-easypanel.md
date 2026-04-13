@@ -1,0 +1,105 @@
+# Deploy em produção — Easypanel (VPS + Docker)
+
+Este guia alinha o repositório ao fluxo **Git → build Docker → container** no Easypanel, com Postgres, variáveis de ambiente, health check e **crons** (a Vercel `vercel.json` **não** corre no VPS — use o agendador do Easypanel ou `scripts/run-cron-tasks.sh`).
+
+## 1. Postgres
+
+1. No Easypanel, crie um serviço **PostgreSQL** (ou use um externo).
+2. Copie a **connection string** (`postgresql://...`) para `DATABASE_URL` na app.
+3. Em Docker na mesma stack, o host costuma ser o **nome interno** do serviço (ex.: `postgres`), **não** `localhost`.
+
+## 2. App (Dockerfile do repositório)
+
+1. Novo serviço → **App** → repositório Git → **Dockerfile** na raiz.
+2. **Porta interna:** `3000` (ou defina `PORT`; o `next start` escuta em `0.0.0.0`).
+3. **Health check (recomendado):** HTTP GET `https://SEU_DOMINIO/api/health` ou, dentro da rede interna, `http://CONTAINER:3000/api/health` com intervalo 30s.
+
+### Build args (obrigatórios no Easypanel → Build)
+
+O `next build` importa módulos que leem estas variáveis. Use a **URL pública final** (HTTPS) e um segredo real de auth.
+
+| Build arg | Exemplo | Notas |
+|-----------|---------|--------|
+| `DATABASE_URL` | `postgresql://user:pass@host:5432/db` | Pode ser a mesma do runtime; só precisa de formato válido no build. |
+| `BETTER_AUTH_URL` | `https://app.seudominio.com.br` | **Sem** barra final; igual à URL pública da API. |
+| `BETTER_AUTH_SECRET` | 32+ bytes aleatórios | `openssl rand -base64 32` |
+| `NEXT_PUBLIC_APP_URL` | `https://app.seudominio.com.br` | Mesmo host que o browser usa. |
+
+Opcionais no build: `NEXT_PUBLIC_SENTRY_DSN`, `SENTRY_AUTH_TOKEN` (source maps).
+
+### Variáveis de runtime (Container / Environment)
+
+Copie de `.env.local.example` o que aplicar. **Mínimo para produção:**
+
+- `DATABASE_URL` — igual ao Postgres real (acessível do container).
+- `BETTER_AUTH_URL`, `BETTER_AUTH_SECRET`, `NEXT_PUBLIC_APP_URL` — iguais aos build args.
+- `NODE_ENV=production`
+- `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` (se usar pagamentos).
+- `RESEND_API_KEY`, `RESEND_FROM_EMAIL` (e-mail transacional).
+- `CRON_SECRET` — `openssl rand -base64 32`; **obrigatório** se for agendar crons.
+- `CRON_BASE_URL` (opcional) — URL pública `https://...` para `scripts/run-cron-tasks.sh`; se omitir, usa `NEXT_PUBLIC_APP_URL`.
+
+Opcionais:
+
+- `SKIP_DB_MIGRATE=1` — só se migrar a BD **fora** do container (por defeito o entrypoint corre `drizzle-kit migrate`).
+
+**Crons a correr dentro do mesmo container** (Easypanel “Run in container”): use `CRON_BASE_URL=http://127.0.0.1:3000` (ou a `PORT` exposta) para evitar hairpin DNS para o domínio público.
+- Push: `VAPID_*`, etc.
+- `SECURITY_LOG_INGEST_URL` / `SECURITY_LOG_INGEST_TOKEN`
+- `DATA_RETENTION_CRON_ENABLED=1` — só após decisão jurídica (o cron responde `enabled: false` sem isto).
+
+## 3. Domínio e TLS
+
+- No Easypanel, associe o domínio e ative **HTTPS** (proxy reverso do painel ou certificado próprio).
+- `BETTER_AUTH_URL` e `NEXT_PUBLIC_APP_URL` devem ser **exatamente** o URL público (esquema + host), para cookies e CORS.
+
+## 4. Stripe
+
+- Webhook: `https://SEU_DOMINIO/api/webhooks/stripe`
+- Eventos necessários conforme `SECURITY.md` / código do webhook.
+
+## 5. Crons (obrigatório no VPS; não usa `vercel.json`)
+
+Duas rotas protegidas com `Authorization: Bearer CRON_SECRET` ou header `x-cron-secret`:
+
+| Rota | Função |
+|------|--------|
+| `POST /api/cron/maintenance-push` | Push de lembretes de manutenção |
+| `POST /api/cron/data-retention` | Anonimização (opt-in `DATA_RETENTION_CRON_ENABLED`) |
+
+**Easypanel — Scheduled job (recomendado):**
+
+- **Diário** (ex. 13:00 UTC): comando que chama só maintenance-push, ou o script completo.
+- **Mensal** (ex. dia 3): `data-retention` (pode ser o mesmo script).
+
+Exemplo com script no repositório (o servidor precisa de `curl` e `bash`; no container Debian/Alpine do Node já costuma haver `curl` no host Easypanel):
+
+```bash
+cd /caminho/do/repo && bash scripts/run-cron-tasks.sh
+```
+
+Ou dois jobs separados com `curl`:
+
+```bash
+curl -fsS -X POST -H "Authorization: Bearer $CRON_SECRET" "$NEXT_PUBLIC_APP_URL/api/cron/maintenance-push"
+```
+
+## 6. Deploy sem Easypanel (PM2 no VPS)
+
+Ver `scripts/deploy.sh`, `scripts/setup-vps.sh`, `nginx/copilote.conf` e `ecosystem.config.js`.
+
+## 6b. RLS e backup no servidor (mesmo fora do Easypanel)
+
+- **RLS:** `CONFIRM_RLS_APPLY=1 DATABASE_URL=... bash scripts/apply-rls.sh` (só após plano em `SECURITY-GAPS` §1). Smoke: `bash scripts/verify-rls.sh`.
+- **Backup:** `bash scripts/install-backup-cron.sh` (ajuste `APP_DIR` se preciso). Restore: `bash scripts/restore-backup.sh ficheiro.sql.gz`.
+- **PM2:** `bash scripts/pm2-setup-logrotate.sh` e `bash scripts/pm2-persist.sh`.
+
+## 7. Checklist rápido antes de abrir ao público
+
+- [ ] `DATABASE_URL` acessível do container; migrations aplicadas (logs do entrypoint ou `drizzle-kit migrate`).
+- [ ] `BETTER_AUTH_URL` = URL real HTTPS.
+- [ ] Stripe webhook a apontar para produção e `whsec_` correto.
+- [ ] E-mail (Resend) a enviar com domínio verificado.
+- [ ] `CRON_SECRET` definido e job a bater nas rotas `/api/cron/*`.
+- [ ] Health `/api/health` 200 atrás do proxy.
+- [ ] (Opcional) RLS aplicado e `bash scripts/verify-rls.sh` OK — ver `SECURITY-GAPS.md` §1.

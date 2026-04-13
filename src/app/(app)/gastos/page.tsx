@@ -3,7 +3,10 @@ import { redirect } from "next/navigation";
 import { GastosView } from "@/components/expenses/gastos-view";
 import { Skeleton } from "@/components/ui/skeleton";
 import { defaultRideListDateRange } from "@/lib/corridas-default-range";
+import { getVehicleForUser } from "@/lib/dashboard-data";
 import { requireSession } from "@/lib/get-session";
+import { loadForAppUser } from "@/lib/load-for-app-user";
+import { normalizePowertrain } from "@/lib/vehicle-powertrain";
 import {
   countExpensesThisMonth,
   getEffectivePlan,
@@ -53,14 +56,24 @@ export default async function GastosPage({
     if (page) next.set("page", page);
     redirect(`/gastos?${next.toString()}`);
   }
-  const plan = await getEffectivePlan(userId, session.user.email);
-  const expensesThisMonth = await countExpensesThisMonth(userId);
-  const showFreeLimitBanner =
-    plan === "free" && isFreeExpenseLimitReached(expensesThisMonth);
+  const [showFreeLimitBanner, vehiclePowertrain] = await Promise.all([
+    loadForAppUser(userId, async () => {
+      const plan = await getEffectivePlan(userId, session.user.email);
+      const expensesThisMonth = await countExpensesThisMonth(userId);
+      return plan === "free" && isFreeExpenseLimitReached(expensesThisMonth);
+    }),
+    loadForAppUser(userId, async () => {
+      const v = await getVehicleForUser(userId);
+      return normalizePowertrain(v?.powertrain);
+    }),
+  ]);
 
   return (
     <Suspense fallback={<GastosFallback />}>
-      <GastosView showFreeLimitBanner={showFreeLimitBanner} />
+      <GastosView
+        showFreeLimitBanner={showFreeLimitBanner}
+        vehiclePowertrain={vehiclePowertrain}
+      />
     </Suspense>
   );
 }

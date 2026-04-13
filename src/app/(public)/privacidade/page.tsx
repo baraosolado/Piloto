@@ -5,7 +5,7 @@ import { LegalLayout } from "@/components/legal/legal-layout";
 export const metadata: Metadata = {
   title: "Política de privacidade",
   description:
-    "Política de privacidade do Piloto — tratamento de dados pessoais conforme a LGPD.",
+    "Política de privacidade do Copilote — tratamento de dados pessoais conforme a LGPD.",
 };
 
 // TODO: preencher antes do deploy — data de vigência exibida ao usuário
@@ -21,7 +21,7 @@ export default function PrivacidadePage() {
       lastUpdated={LAST_UPDATED}
     >
       <p className="mt-0 text-[15px] leading-[1.8] text-[#333]">
-        Esta Política descreve como o <strong>Piloto</strong> trata dados pessoais,
+        Esta Política descreve como o <strong>Copilote</strong> trata dados pessoais,
         em conformidade com a <strong>Lei nº 13.709/2018 (LGPD)</strong>.
       </p>
 
@@ -80,7 +80,7 @@ export default function PrivacidadePage() {
       <h3>Pagamentos</h3>
       <p>
         Dados de cartão e cobrança são tratados pelo <strong>Stripe</strong>. O
-        Piloto <strong>não armazena</strong> número de cartão completo nem CVC.
+        Copilote <strong>não armazena</strong> número de cartão completo nem CVC.
       </p>
 
       <h2>3. Por que coletamos (bases legais — LGPD)</h2>
@@ -118,7 +118,7 @@ export default function PrivacidadePage() {
         </li>
         <li>
           <strong>não utilizamos</strong> seus dados para exibir publicidade de
-          terceiros dentro do Piloto.
+          terceiros dentro do Copilote.
         </li>
       </ul>
 
@@ -224,7 +224,7 @@ export default function PrivacidadePage() {
         </li>
         <li>
           <strong>Não utilizamos</strong> cookies de publicidade comportamental de
-          terceiros para rastrear sua navegação fora do Piloto.
+          terceiros para rastrear sua navegação fora do Copilote.
         </li>
         <li>
           <strong>Não utilizamos Google Analytics</strong> nem ferramentas análogas
@@ -235,7 +235,7 @@ export default function PrivacidadePage() {
 
       <h2>10. Crianças e adolescentes</h2>
       <p>
-        O Piloto <strong>não é destinado</strong> a menores de <strong>18 anos</strong>.
+        O Copilote <strong>não é destinado</strong> a menores de <strong>18 anos</strong>.
         Não coletamos intencionalmente dados de menores. Se tomarmos conhecimento de
         cadastro indevido, tomaremos medidas para excluir as informações.
       </p>

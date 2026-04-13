@@ -1,5 +1,5 @@
 import { and, eq, isNotNull, max, ne, type SQL } from "drizzle-orm";
-import { db } from "@/db";
+import { getRequestDb } from "@/db/request-db";
 import { expenses } from "@/db/schema";
 
 /** Maior odômetro registrado em abastecimentos; opcionalmente exclui um gasto (edição). */
@@ -15,7 +15,7 @@ export async function getMaxFuelOdometerExcluding(
   if (excludeExpenseId) {
     conditions.push(ne(expenses.id, excludeExpenseId));
   }
-  const [row] = await db
+  const [row] = await getRequestDb()
     .select({ m: max(expenses.odometer) })
     .from(expenses)
     .where(and(...conditions));

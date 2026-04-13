@@ -1,11 +1,30 @@
 import { NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
-import { db } from "@/db";
+import { getRequestDb } from "@/db/request-db";
+import { runWithAppUserId } from "@/db/run-with-app-user-id";
 import { platformsUsed } from "@/db/schema";
-import { getSessionUserId } from "@/lib/api-session";
+import { requireSession } from "@/lib/api-session";
 
 const platformIdSchema = z.enum(["uber", "99", "indrive", "particular"]);
+
+export async function GET() {
+  const auth = await requireSession();
+  if ("response" in auth) return auth.response;
+
+  const userId = auth.userId;
+  return runWithAppUserId(userId, async () => {
+    const gdb = getRequestDb();
+    const rows = await gdb
+      .select({ platform: platformsUsed.platform })
+      .from(platformsUsed)
+      .where(eq(platformsUsed.userId, userId));
+    return NextResponse.json({
+      data: { platforms: rows.map((r) => r.platform) },
+      error: null,
+    });
+  });
+}
 
 const bodySchema = z.object({
   platforms: z
@@ -14,7 +33,7 @@ const bodySchema = z.object({
 });
 
 export async function POST(request: Request) {
-  const auth = await getSessionUserId();
+  const auth = await requireSession();
   if ("response" in auth) return auth.response;
 
   let json: unknown;
@@ -51,14 +70,17 @@ export async function POST(request: Request) {
   const userId = auth.userId;
   const uniquePlatforms = [...new Set(parsed.data.platforms)];
 
-  const rows = await db.transaction(async (tx) => {
-    await tx.delete(platformsUsed).where(eq(platformsUsed.userId, userId));
-    if (uniquePlatforms.length === 0) return [];
-    return tx
-      .insert(platformsUsed)
-      .values(uniquePlatforms.map((platform) => ({ userId, platform })))
-      .returning();
-  });
+  return runWithAppUserId(userId, async () => {
+    const gdb = getRequestDb();
+    await gdb.delete(platformsUsed).where(eq(platformsUsed.userId, userId));
+    const rows =
+      uniquePlatforms.length === 0
+        ? []
+        : await gdb
+            .insert(platformsUsed)
+            .values(uniquePlatforms.map((platform) => ({ userId, platform })))
+            .returning();
 
-  return NextResponse.json({ data: { platforms: rows }, error: null });
+    return NextResponse.json({ data: { platforms: rows }, error: null });
+  });
 }

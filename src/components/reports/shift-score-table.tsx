@@ -22,10 +22,13 @@ export type ShiftRow = {
 export function ShiftScoreTable({
   rows,
   blur,
+  visual = "default",
 }: {
   rows: ShiftRow[];
   blur: boolean;
+  visual?: "default" | "cockpit";
 }) {
+  const cockpit = visual === "cockpit";
   return (
     <div className="relative">
       {blur ? (
@@ -41,20 +44,57 @@ export function ShiftScoreTable({
       >
         <Table>
           <TableHeader>
-            <TableRow className="hover:bg-transparent">
-              <TableHead>Turno</TableHead>
-              <TableHead>Horário</TableHead>
-              <TableHead className="text-right">Lucro/hora</TableHead>
-              <TableHead className="text-right">Ranking</TableHead>
+            <TableRow
+              className={cn(
+                "border-0 hover:bg-transparent",
+                cockpit && "bg-black",
+              )}
+            >
+              <TableHead
+                className={cn(
+                  cockpit &&
+                    "rounded-tl-md py-3 text-[10px] font-bold uppercase tracking-wider text-white",
+                )}
+              >
+                Turno
+              </TableHead>
+              <TableHead
+                className={cn(
+                  cockpit &&
+                    "py-3 text-[10px] font-bold uppercase tracking-wider text-white",
+                )}
+              >
+                Horário
+              </TableHead>
+              <TableHead
+                className={cn(
+                  "text-right",
+                  cockpit &&
+                    "py-3 text-[10px] font-bold uppercase tracking-wider text-white",
+                )}
+              >
+                Lucro/hora
+              </TableHead>
+              <TableHead
+                className={cn(
+                  "text-right",
+                  cockpit &&
+                    "rounded-tr-md py-3 text-[10px] font-bold uppercase tracking-wider text-white",
+                )}
+              >
+                Ranking
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {rows.map((r) => (
+            {rows.map((r, idx) => (
               <TableRow
                 key={r.turno}
                 className={cn(
                   r.isBest && "font-bold",
                   r.isWorst && "text-muted-foreground",
+                  cockpit && idx % 2 === 1 && "bg-[#f3f3f3]",
+                  cockpit && "border-0 hover:bg-[#ebebeb]",
                 )}
               >
                 <TableCell>
@@ -67,7 +107,7 @@ export function ShiftScoreTable({
                 <TableCell
                   className={cn(
                     "text-right tabular-nums",
-                    r.isBest && "font-bold text-[#00A651]",
+                    r.isBest && "font-bold text-[#006d33]",
                   )}
                 >
                   {formatBRL(r.lucroPorHora)}/h

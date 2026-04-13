@@ -1,5 +1,6 @@
 import * as Sentry from "@sentry/nextjs";
 import { NextResponse } from "next/server";
+import { requireSession } from "@/lib/api-session";
 
 export const dynamic = "force-dynamic";
 
@@ -11,6 +12,9 @@ class SentryExampleAPIError extends Error {
 }
 
 export async function GET() {
+  const auth = await requireSession();
+  if ("response" in auth) return auth.response;
+
   if (process.env.NODE_ENV === "production") {
     return NextResponse.json(
       { data: null, error: { code: "NOT_FOUND", message: "Not found" } },

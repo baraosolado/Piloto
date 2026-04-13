@@ -1,7 +1,7 @@
 /**
- * Atualiza o e-mail do usuário dev no banco (ex.: trocar dev@piloto.local por um Gmail real).
+ * Atualiza o e-mail do usuário dev no banco (ex.: trocar dev@copilote.local por um Gmail real).
  * Uso: node scripts/update-dev-user-email.mjs [de] [para]
- * Default: dev@piloto.local → emersonlincoln4@gmail.com
+ * Default: dev@copilote.local → emersonlincoln4@gmail.com
  */
 
 import { config } from "dotenv";
@@ -14,7 +14,7 @@ const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 config({ path: path.join(root, ".env") });
 config({ path: path.join(root, ".env.local"), override: true });
 
-const fromEmail = (process.argv[2] || "dev@piloto.local").toLowerCase();
+const fromEmail = (process.argv[2] || "dev@copilote.local").toLowerCase();
 const toEmail = (process.argv[3] || "emersonlincoln4@gmail.com").toLowerCase();
 
 const url = process.env.DATABASE_URL;

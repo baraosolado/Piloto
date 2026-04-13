@@ -5,7 +5,7 @@ import { LegalLayout } from "@/components/legal/legal-layout";
 export const metadata: Metadata = {
   title: "Termos de uso",
   description:
-    "Termos de uso do Piloto — serviço de controle financeiro para motoristas de aplicativo.",
+    "Termos de uso do Copilote — serviço de controle financeiro para motoristas de aplicativo.",
 };
 
 // TODO: preencher antes do deploy — data de vigência exibida ao usuário
@@ -14,16 +14,16 @@ const LAST_UPDATED = "19 de março de 2026";
 export default function TermosPage() {
   return (
     <LegalLayout title="Termos de uso" lastUpdated={LAST_UPDATED}>
-      <h2>1. Sobre o Piloto</h2>
+      <h2>1. Sobre o Copilote</h2>
       <p>
-        O <strong>Piloto</strong> é um serviço online (SaaS) de organização e
+        O <strong>Copilote</strong> é um serviço online (SaaS) de organização e
         visualização financeira voltado a <strong>motoristas de aplicativo</strong>{" "}
         (como Uber, 99, inDrive e trabalho particular registrado na plataforma),
         que permite registrar corridas e gastos, acompanhar indicadores e gerar
         relatórios para apoio à decisão pessoal.
       </p>
       <p>
-        O uso do Piloto é permitido apenas a <strong>pessoas físicas maiores de
+        O uso do Copilote é permitido apenas a <strong>pessoas físicas maiores de
         18 anos</strong>, com capacidade civil para contratar.
       </p>
       <p>
@@ -70,9 +70,12 @@ export default function TermosPage() {
       </ul>
       <h3>Plano Premium</h3>
       <p>
-        O plano pago custa <strong>R$ 19,90 por mês</strong>, cobrado de forma
-        recorrente no cartão de crédito ou débito, conforme opções disponibilizadas
-        pelo processador de pagamentos.
+        O plano pago inclui <strong>7 (sete) dias de uso gratuito</strong> para
+        novas assinaturas; após esse período, a cobrança é feita de forma recorrente
+        no cartão, conforme a modalidade escolhida: <strong>cerca de R$ 12,90 por
+        mês</strong> (plano mensal) ou <strong>valor anual promocional</strong>{" "}
+        (plano anual com desconto em relação a doze mensalidades cheias), nos termos
+        exibidos no momento da contratação e processados pelo Stripe.
       </p>
       <h3>Cancelamento</h3>
       <p>
@@ -88,7 +91,7 @@ export default function TermosPage() {
       </p>
       <h3>Processador de pagamento</h3>
       <p>
-        Os pagamentos são processados pelo <strong>Stripe</strong>. O Piloto{" "}
+        Os pagamentos são processados pelo <strong>Stripe</strong>. O Copilote{" "}
         <strong>não armazena</strong> o número completo do cartão nem os dados
         sensíveis de pagamento; esses dados são tratados conforme a política do
         Stripe.
@@ -96,7 +99,7 @@ export default function TermosPage() {
 
       <h2>4. Uso do serviço</h2>
       <p>
-        O Piloto é uma <strong>ferramenta de organização financeira pessoal</strong>.
+        O Copilote é uma <strong>ferramenta de organização financeira pessoal</strong>.
         Os dados de corridas e gastos são <strong>inseridos manualmente</strong> por
         você — <strong>não há integração automática</strong> com Uber, 99, inDrive
         ou outras plataformas.
@@ -116,7 +119,7 @@ export default function TermosPage() {
 
       <h2>5. Responsabilidade e limitações</h2>
       <p>
-        O Piloto <strong>não presta assessoria financeira profissional</strong> e
+        O Copilote <strong>não presta assessoria financeira profissional</strong> e
         não garante resultado econômico ou lucratividade. Decisões tomadas com base
         nas informações do aplicativo são de <strong>sua exclusiva
         responsabilidade</strong>.
@@ -132,7 +135,7 @@ export default function TermosPage() {
       <h2>6. Propriedade intelectual</h2>
       <p>
         O nome, marca, layout, textos da interface, código e demais elementos do
-        Piloto, salvo conteúdo de terceiros, são de propriedade da empresa ou de
+        Copilote, salvo conteúdo de terceiros, são de propriedade da empresa ou de
         seus licenciadores. É vedada a cópia não autorizada para fins comerciais.
       </p>
       <p>

@@ -15,6 +15,11 @@ import {
   TrendingUp,
   Wrench,
 } from "lucide-react";
+import { useMaintenanceAlerts } from "@/components/layout/maintenance-alerts-context";
+import {
+  MaintenanceMenuButtonDot,
+  MaintenanceNavIndicator,
+} from "@/components/layout/maintenance-nav-indicator";
 import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
 import {
@@ -47,7 +52,7 @@ const sheetNavSections: {
       { href: "/manutencao", label: "Manutenção", icon: Wrench },
       { href: "/metas", label: "Metas", icon: Target },
       { href: "/relatorios", label: "Relatórios", icon: FileText },
-      { href: "/planos", label: "Planos", icon: CreditCard },
+      { href: "/configuracoes/plano", label: "Plano e pagamento", icon: CreditCard },
     ],
   },
   {
@@ -69,6 +74,7 @@ function sheetLinkActive(pathname: string, href: string) {
 
 export function MobileNav() {
   const pathname = usePathname();
+  const maintenanceAlerts = useMaintenanceAlerts();
   const { data } = authClient.useSession();
   const user = data?.user;
   const displayName =
@@ -108,10 +114,16 @@ export function MobileNav() {
         <SheetTrigger asChild>
           <button
             type="button"
-            className="flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 px-1 text-[10px] font-medium text-[#888888]"
+            className="relative flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 px-1 text-[10px] font-medium text-[#888888]"
           >
+            <MaintenanceMenuButtonDot />
             <Menu className="size-6 text-[#888888]" strokeWidth={1.75} aria-hidden />
             <span className="truncate">Menu</span>
+            {maintenanceAlerts.overdue + maintenanceAlerts.warning > 0 ? (
+              <span className="sr-only">
+                Há alertas de manutenção; abra o menu para ver Manutenção
+              </span>
+            ) : null}
           </button>
         </SheetTrigger>
       </nav>
@@ -133,6 +145,9 @@ export function MobileNav() {
               <nav className="flex flex-col gap-0.5">
                 {section.items.map(({ href, label, icon: Icon }) => {
                   const active = sheetLinkActive(pathname, href);
+                  const isManutencao = href === "/manutencao";
+                  const maintCount =
+                    maintenanceAlerts.overdue + maintenanceAlerts.warning;
                   return (
                     <SheetClose key={href} asChild>
                       <Link
@@ -141,17 +156,27 @@ export function MobileNav() {
                           "flex items-center gap-3 rounded-lg py-3 px-3 text-sm transition-colors",
                           active
                             ? "bg-[#F6F6F6] font-bold text-black"
-                            : "font-medium text-[#888888] hover:bg-[#F6F6F6]/80"
+                            : "font-medium text-[#888888] hover:bg-[#F6F6F6]/80",
                         )}
                       >
                         <Icon
                           className={cn(
                             "size-5 shrink-0",
-                            active ? "text-black" : "text-[#888888]"
+                            active ? "text-black" : "text-[#888888]",
                           )}
                           aria-hidden
                         />
-                        {label}
+                        <span className="min-w-0 flex-1 truncate">{label}</span>
+                        {isManutencao && maintCount > 0 ? (
+                          <span className="sr-only">
+                            {maintenanceAlerts.overdue > 0
+                              ? `${maintCount} alertas, há itens atrasados ou próximos`
+                              : `${maintCount} manutenções próximas`}
+                          </span>
+                        ) : null}
+                        {isManutencao ? (
+                          <MaintenanceNavIndicator className="!ml-0" />
+                        ) : null}
                       </Link>
                     </SheetClose>
                   );

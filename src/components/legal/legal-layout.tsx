@@ -22,7 +22,7 @@ export function LegalLayout({
             href="/"
             className="text-xl font-black tracking-tighter text-black transition-opacity hover:opacity-80"
           >
-            Piloto
+            Copilote
           </Link>
           <Link
             href="/"
@@ -56,7 +56,7 @@ export function LegalLayout({
         </div>
 
         <footer className="mt-16 border-t border-[#ddd] pt-8 text-center text-sm text-[#555]">
-          <p>© {year} Piloto.</p>
+          <p>© {year} Copilote.</p>
           <nav className="mt-3 flex flex-wrap justify-center gap-x-4 gap-y-1">
             <Link
               href="/termos"

@@ -41,14 +41,15 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
 
 | Arquivo | Uso |
 |--------|-----|
-| `ecosystem.config.js` | PM2 (`piloto`) — `next start` em cluster |
+| `ecosystem.config.js` | PM2 (`copilote`) — `next start` (fork, 1 instância) |
 | `scripts/setup-vps.sh` | Setup inicial do servidor (uma vez, `sudo`) |
 | `scripts/deploy.sh` | Git pull, `npm ci`, build, migrations, reload PM2 |
+| `docs/deploy-easypanel.md` | **Easypanel + Docker:** build args, env, health, crons (`run-cron-tasks.sh`) |
 | `scripts/backup-db.sh` | Dump PostgreSQL (`DATABASE_URL` no `.env.local` ou `PGPASSWORD`) |
-| `nginx/piloto.conf` | Modelo Nginx — trocar `SEU_DOMINIO.COM.BR` |
+| `nginx/copilote.conf` | Modelo Nginx — trocar `SEU_DOMINIO.COM.BR` |
 | `.github/workflows/deploy.yml` | CI opcional — secrets `VPS_HOST`, `VPS_USER`, `VPS_SSH_KEY` |
 
-Alinhar `piloto_db`, `piloto_user` e `/var/www/piloto` com o seu `.env.local` no servidor.
+Alinhar `copilote_db`, `copilote_user` e `/var/www/copilote` com o seu `.env.local` no servidor.
 
 O `deploy.sh` usa **`npm ci` completo** (inclui devDependencies): `next build` e `drizzle-kit migrate` precisam de TypeScript e `drizzle-kit`.
 
@@ -56,17 +57,21 @@ O `deploy.sh` usa **`npm ci` completo** (inclui devDependencies): `next build` e
 
 ```bash
 pm2 status
-pm2 logs piloto
-pm2 logs piloto --err
-pm2 reload piloto --update-env
-pm2 stop piloto
+pm2 logs copilote
+pm2 logs copilote --err
+pm2 reload copilote --update-env
+pm2 stop copilote
 pm2 monit
 bash scripts/deploy.sh
 npm run db:backup
-ls -lh /var/backups/piloto-db/
-gunzip -c /var/backups/piloto-db/ARQUIVO.sql.gz | psql -U piloto_user -d piloto_db
+ls -lh /var/backups/copilote-db/
+gunzip -c /var/backups/copilote-db/ARQUIVO.sql.gz | psql -U copilote_user -d copilote_db
 sudo nginx -t && sudo systemctl reload nginx
 sudo certbot renew --dry-run
 ```
 
-Linux: `chmod +x scripts/deploy.sh scripts/setup-vps.sh scripts/backup-db.sh`. Outro diretório de app: `APP_DIR=/caminho bash scripts/deploy.sh`.
+Linux: `chmod +x scripts/deploy.sh scripts/setup-vps.sh scripts/backup-db.sh scripts/run-cron-tasks.sh scripts/apply-rls.sh scripts/verify-rls.sh scripts/restore-backup.sh scripts/install-backup-cron.sh scripts/pm2-setup-logrotate.sh scripts/pm2-persist.sh`. Outro diretório de app: `APP_DIR=/caminho bash scripts/deploy.sh`.
+
+RLS (staging): `CONFIRM_RLS_APPLY=1 DATABASE_URL=... bash scripts/apply-rls.sh` — ver `SECURITY-GAPS.md` §1.
+
+**Easypanel (VPS):** ver [docs/deploy-easypanel.md](docs/deploy-easypanel.md) — health `GET /api/health`, crons não usam `vercel.json`.

@@ -18,6 +18,7 @@ import {
   historyBadge,
   type HistoryBadge,
 } from "@/lib/metas-utils";
+import { vehicleFromVehicleRow } from "@/lib/vehicle-powertrain";
 
 export type MetasHistoryRow = {
   year: number;
@@ -57,17 +58,14 @@ function vehicleFromRow(
   row: Awaited<ReturnType<typeof getVehicleForUser>>,
 ): Vehicle | null {
   if (!row) return null;
-  return {
-    fuelConsumption: Number(row.fuelConsumption),
-    fuelPrice: Number(row.fuelPrice),
-    depreciationPerKm: Number(row.depreciationPerKm),
-  };
+  return vehicleFromVehicleRow(row);
 }
 
 const FAKE_VEHICLE: Vehicle = {
   fuelConsumption: 1,
   fuelPrice: 0,
   depreciationPerKm: 0,
+  powertrain: "combustion",
 };
 
 function utcMonthEnd(year: number, month1to12: number): Date {

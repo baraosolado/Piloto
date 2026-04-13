@@ -1,18 +1,18 @@
 import { Resend } from "resend";
 
-const APP_NAME = "Piloto";
+const APP_NAME = "Copilote";
 
 function getFromAddress(): string {
   const raw =
     process.env.RESEND_FROM_EMAIL?.trim() ||
     process.env.RESEND_FROM?.trim() ||
-    "noreply@piloto.app.br";
+    "noreply@copilote.app.br";
   return `${APP_NAME} <${raw}>`;
 }
 
 function getAppUrl(): string {
   return (
-    process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ?? "https://piloto.app.br"
+    process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ?? "https://copilote.app.br"
   );
 }
 
@@ -62,8 +62,8 @@ function resendTestingModeUserMessage(error: unknown): string | null {
 
   return (
     `No plano de testes da Resend você só pode enviar para ${who}. ` +
-    "O Piloto manda a confirmação de troca de e-mail para o endereço atual da conta logada — se for outro Gmail, a Resend bloqueia (403). " +
-    "Soluções: entrar no Piloto com o mesmo e-mail da conta Resend, ou verificar um domínio em resend.com/domains e usar RESEND_FROM_EMAIL desse domínio."
+    "O Copilote manda a confirmação de troca de e-mail para o endereço atual da conta logada — se for outro Gmail, a Resend bloqueia (403). " +
+    "Soluções: entrar no Copilote com o mesmo e-mail da conta Resend, ou verificar um domínio em resend.com/domains e usar RESEND_FROM_EMAIL desse domínio."
   );
 }
 
@@ -117,7 +117,7 @@ export async function sendPasswordResetEmail({
   const { data, error } = await resend.emails.send({
     from: getFromAddress(),
     to,
-    subject: "Redefinir sua senha — Piloto",
+    subject: "Redefinir sua senha — Copilote",
     html: passwordResetTemplate({
       name,
       resetLink,
@@ -167,7 +167,7 @@ export async function sendVerificationEmailMessage({
   const { data, error } = await resend.emails.send({
     from: getFromAddress(),
     to,
-    subject: "Confirme seu e-mail — Piloto",
+    subject: "Confirme seu e-mail — Copilote",
     html: verificationEmailTemplate({
       name,
       verificationLink,
@@ -224,7 +224,7 @@ export async function sendChangeEmailVerificationEmail({
   const { data, error } = await resend.emails.send({
     from: getFromAddress(),
     to,
-    subject: "Confirme a alteração do seu e-mail — Piloto",
+    subject: "Confirme a alteração do seu e-mail — Copilote",
     html: changeEmailVerificationTemplate({
       name,
       newEmail,
@@ -272,7 +272,7 @@ export async function sendWelcomeEmail({
   const { data, error } = await resend.emails.send({
     from: getFromAddress(),
     to,
-    subject: `Bem-vindo ao Piloto, ${name.split(" ")[0] ?? name}!`,
+    subject: `Bem-vindo ao Copilote, ${name.split(" ")[0] ?? name}!`,
     html: welcomeTemplate({ name, appUrl }),
   });
 
@@ -303,7 +303,7 @@ function passwordResetTemplate({
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Redefinir senha — Piloto</title>
+  <title>Redefinir senha — Copilote</title>
 </head>
 <body style="margin:0;padding:0;background-color:#f6f6f6;font-family:Arial,Helvetica,sans-serif;">
   <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f6f6f6;padding:40px 20px;">
@@ -325,7 +325,7 @@ function passwordResetTemplate({
                 Olá, <strong>${firstName}</strong>
               </p>
               <p style="margin:0 0 24px;font-size:15px;color:#555555;line-height:1.6;">
-                Recebemos uma solicitação para redefinir a senha da sua conta no Piloto.
+                Recebemos uma solicitação para redefinir a senha da sua conta no Copilote.
                 Clique no botão abaixo para criar uma nova senha.
               </p>
 
@@ -362,7 +362,7 @@ function passwordResetTemplate({
             <td style="background:#f6f6f6;padding:20px 40px;
                         border-top:1px solid #eeeeee;">
               <p style="margin:0;font-size:12px;color:#aaaaaa;line-height:1.6;">
-                Piloto — Controle financeiro para motoristas de aplicativo<br>
+                Copilote — Controle financeiro para motoristas de aplicativo<br>
                 <a href="${appUrl}/privacidade"
                    style="color:#aaaaaa;">Política de Privacidade</a>
                 &nbsp;·&nbsp;
@@ -398,7 +398,7 @@ function verificationEmailTemplate({
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Confirme seu e-mail — Piloto</title>
+  <title>Confirme seu e-mail — Copilote</title>
 </head>
 <body style="margin:0;padding:0;background-color:#f6f6f6;font-family:Arial,Helvetica,sans-serif;">
   <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f6f6f6;padding:40px 20px;">
@@ -416,7 +416,7 @@ function verificationEmailTemplate({
                 Olá, <strong>${firstName}</strong>
               </p>
               <p style="margin:0 0 24px;font-size:15px;color:#555555;line-height:1.6;">
-                Confirme seu endereço de e-mail para ativar sua conta Piloto.
+                Confirme seu endereço de e-mail para ativar sua conta Copilote.
               </p>
               <table cellpadding="0" cellspacing="0" style="margin:0 0 24px;">
                 <tr>
@@ -470,7 +470,7 @@ function changeEmailVerificationTemplate({
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Confirmar novo e-mail — Piloto</title>
+  <title>Confirmar novo e-mail — Copilote</title>
 </head>
 <body style="margin:0;padding:0;background-color:#f6f6f6;font-family:Arial,Helvetica,sans-serif;">
   <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f6f6f6;padding:40px 20px;">
@@ -488,7 +488,7 @@ function changeEmailVerificationTemplate({
                 Olá, <strong>${firstName}</strong>
               </p>
               <p style="margin:0 0 24px;font-size:15px;color:#555555;line-height:1.6;">
-                Recebemos um pedido para alterar o e-mail da sua conta Piloto para
+                Recebemos um pedido para alterar o e-mail da sua conta Copilote para
                 <strong>${newEmailSafe}</strong>. Se foi você, confirme clicando no botão abaixo.
               </p>
               <table cellpadding="0" cellspacing="0" style="margin:0 0 24px;">
@@ -541,7 +541,7 @@ function welcomeTemplate({
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Bem-vindo ao Piloto</title>
+  <title>Bem-vindo ao Copilote</title>
 </head>
 <body style="margin:0;padding:0;background-color:#f6f6f6;font-family:Arial,Helvetica,sans-serif;">
   <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f6f6f6;padding:40px 20px;">
@@ -560,7 +560,7 @@ function welcomeTemplate({
           <tr>
             <td style="padding:36px 40px 28px;">
               <p style="margin:0 0 16px;font-size:15px;color:#1a1a1a;line-height:1.6;">
-                Olá, <strong>${firstName}</strong> — bem-vindo ao Piloto!
+                Olá, <strong>${firstName}</strong> — bem-vindo ao Copilote!
               </p>
               <p style="margin:0 0 24px;font-size:15px;color:#555555;line-height:1.6;">
                 Sua conta foi criada com sucesso. Agora você tem tudo que precisa
@@ -595,7 +595,7 @@ function welcomeTemplate({
             <td style="background:#f6f6f6;padding:20px 40px;
                         border-top:1px solid #eeeeee;">
               <p style="margin:0;font-size:12px;color:#aaaaaa;line-height:1.6;">
-                Piloto — Controle financeiro para motoristas de aplicativo<br>
+                Copilote — Controle financeiro para motoristas de aplicativo<br>
                 <a href="${appUrl}/privacidade" style="color:#aaaaaa;">Política de Privacidade</a>
                 &nbsp;·&nbsp;
                 <a href="${appUrl}/termos" style="color:#aaaaaa;">Termos de Uso</a>

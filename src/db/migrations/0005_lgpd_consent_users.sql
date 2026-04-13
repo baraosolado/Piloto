@@ -1,0 +1,1 @@
+ALTER TABLE "users" ADD COLUMN "lgpd_consent_accepted_at" timestamp with time zone;

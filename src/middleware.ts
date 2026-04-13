@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { getSessionCookie } from "better-auth/cookies";
 import { isAllowedBrowserOrigin } from "@/lib/cors";
+import { INTERNAL_ADMIN_BASE_PATH } from "@/lib/internal-admin-path";
 
 const GUEST_ONLY = new Set(["/login", "/cadastro"]);
 
@@ -34,6 +35,20 @@ function applyApiCorsHeaders(
     response.headers.append("Vary", "Origin");
   }
   return response;
+}
+
+/** Repassa o pathname para logs de segurança em Route Handlers (`headers()`). */
+function nextWithRequestPath(request: NextRequest): NextResponse {
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("x-copilote-req-path", request.nextUrl.pathname);
+  return NextResponse.next({ request: { headers: requestHeaders } });
+}
+
+/** Pathname da página para Server Components (ex.: bloqueio pós-trial no layout). */
+function nextPageWithPathname(request: NextRequest): NextResponse {
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("x-copilote-pathname", request.nextUrl.pathname);
+  return NextResponse.next({ request: { headers: requestHeaders } });
 }
 
 function handleApiRequest(request: NextRequest): NextResponse {
@@ -74,7 +89,7 @@ function handleApiRequest(request: NextRequest): NextResponse {
     );
   }
 
-  const res = NextResponse.next();
+  const res = nextWithRequestPath(request);
   return applyApiCorsHeaders(request, res);
 }
 
@@ -104,7 +119,7 @@ export function middleware(request: NextRequest) {
 
   if (pathname.startsWith("/api/")) {
     if (pathname.startsWith("/api/webhooks/stripe")) {
-      return NextResponse.next();
+      return nextWithRequestPath(request);
     }
     return handleApiRequest(request);
   }
@@ -116,7 +131,17 @@ export function middleware(request: NextRequest) {
     if (isLoggedIn) {
       return NextResponse.redirect(new URL("/dashboard", request.url));
     }
-    return NextResponse.next();
+    return nextPageWithPathname(request);
+  }
+
+  const adminBase = INTERNAL_ADMIN_BASE_PATH;
+  if (pathname === adminBase || pathname.startsWith(`${adminBase}/`)) {
+    if (!isLoggedIn) {
+      const login = new URL("/login", request.url);
+      login.searchParams.set("callbackUrl", pathname);
+      return NextResponse.redirect(login);
+    }
+    return nextPageWithPathname(request);
   }
 
   if (isProtectedPath(pathname)) {
@@ -127,11 +152,13 @@ export function middleware(request: NextRequest) {
     }
   }
 
-  return NextResponse.next();
+  return nextPageWithPathname(request);
 }
 
 export const config = {
   matcher: [
+    "/mestre",
+    "/mestre/:path*",
     "/api/:path*",
     "/sentry-example-page",
     "/login",
@@ -148,6 +175,7 @@ export const config = {
     "/planos/:path*",
     "/configuracoes",
     "/configuracoes/:path*",
+    "/onboarding",
     "/onboarding/:path*",
   ],
 };

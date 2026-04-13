@@ -1,14 +1,14 @@
 ---
-description: PRD completo do projeto Piloto — leia antes de qualquer tarefa
+description: PRD completo do projeto Copilote — leia antes de qualquer tarefa
 globs: ["**/*.ts", "**/*.tsx", "**/*.js", "**/*.jsx"]
 alwaysApply: true
 ---
 
-# Piloto — PRD Completo do Projeto
+# Copilote — PRD Completo do Projeto
 
 ## O que é este projeto
 
-**Piloto** é um SaaS financeiro web-first para motoristas de aplicativo brasileiros (Uber, 99, inDrive). O produto resolve uma dor central: motoristas não sabem quanto ganham de verdade depois de descontar combustível, manutenção e depreciação do veículo.
+**Copilote** é um SaaS financeiro web-first para motoristas de aplicativo brasileiros (Uber, 99, inDrive). O produto resolve uma dor central: motoristas não sabem quanto ganham de verdade depois de descontar combustível, manutenção e depreciação do veículo.
 
 **Missão:** Dar ao motorista a visão real do seu lucro líquido — de forma simples, rápida e sem jargão financeiro.
 

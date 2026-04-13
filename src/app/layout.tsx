@@ -12,8 +12,8 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: {
-    default: "Piloto — Controle financeiro para motoristas",
-    template: "%s | Piloto",
+    default: "Copilote — Controle financeiro para motoristas",
+    template: "%s | Copilote",
   },
   description:
     "Saiba quanto você ganha de verdade com Uber, 99 e inDrive. Lucro líquido, custo por km e metas em um só lugar.",

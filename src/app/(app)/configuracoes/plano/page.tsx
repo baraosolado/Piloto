@@ -1,12 +1,16 @@
+import { Suspense } from "react";
 import { ConfiguracoesPlanoClient } from "@/components/configuracoes/configuracoes-plano-client";
 import { ConfiguracoesSubpageHeader } from "@/components/configuracoes/configuracoes-subpage-header";
 import { requireSession } from "@/lib/get-session";
 import {
-  countRidesThisMonth,
-  FREE_RIDES_PER_MONTH,
-  getEffectivePlan,
+  getUserCreatedAt,
   getUserPlan,
+  hasSignupTrialActive,
+  isAccountLockedWithoutSubscription,
+  isDeveloperAccount,
+  signupTrialEndsAt,
 } from "@/lib/plan-limits";
+import { loadForAppUser } from "@/lib/load-for-app-user";
 import { getCustomerCardLast4 } from "@/lib/stripe";
 import { getSubscriptionByUserId } from "@/lib/subscriptions-repo";
 
@@ -15,21 +19,57 @@ export default async function ConfiguracoesPlanoPage() {
   const userId = session.user.id;
   const email = session.user.email;
 
-  const [effective, planDb, subRow, ridesCount] = await Promise.all([
-    getEffectivePlan(userId, email),
-    getUserPlan(userId),
-    getSubscriptionByUserId(userId),
-    countRidesThisMonth(userId),
-  ]);
+  const { planDb, subRow, trialEndedLocked, signupTrialActive, createdAt } =
+    await loadForAppUser(userId, async () => {
+      const [
+        planDb,
+        subRow,
+        trialEndedLocked,
+        createdAt,
+        signupTrialActive,
+      ] = await Promise.all([
+        getUserPlan(userId),
+        getSubscriptionByUserId(userId),
+        isAccountLockedWithoutSubscription(userId, email),
+        getUserCreatedAt(userId),
+        hasSignupTrialActive(userId),
+      ]);
+      return {
+        planDb,
+        subRow,
+        trialEndedLocked,
+        createdAt,
+        signupTrialActive,
+      };
+    });
 
-  const isPremiumEffective = effective === "premium";
   const isPremiumDb = planDb === "premium";
-  const hasStripe =
+  const devAccount = isDeveloperAccount(userId, email);
+  const trialDaysRemaining =
+    signupTrialActive && createdAt
+      ? Math.max(
+          0,
+          Math.ceil(
+            (signupTrialEndsAt(createdAt).getTime() - Date.now()) /
+              (24 * 60 * 60 * 1000),
+          ),
+        )
+      : null;
+  const stripeConfigured = Boolean(
+    process.env.STRIPE_SECRET_KEY?.trim() &&
+      (process.env.STRIPE_PREMIUM_PRICE_ID_MONTHLY?.trim() ||
+        process.env.STRIPE_PREMIUM_PRICE_ID?.trim()),
+  );
+  const stripeYearlyConfigured = Boolean(
+    process.env.STRIPE_PREMIUM_PRICE_ID_YEARLY?.trim(),
+  );
+
+  const hasStripeCustomer =
     Boolean(subRow?.stripeCustomerId) &&
     Boolean(process.env.STRIPE_SECRET_KEY?.trim());
 
   let cardLast4: string | null = null;
-  if (hasStripe && subRow?.stripeCustomerId) {
+  if (hasStripeCustomer && subRow?.stripeCustomerId) {
     try {
       cardLast4 = await getCustomerCardLast4(subRow.stripeCustomerId);
     } catch {
@@ -41,30 +81,27 @@ export default async function ConfiguracoesPlanoPage() {
     ? subRow.currentPeriodEnd.toISOString()
     : null;
 
+  const canOpenBillingPortal =
+    isPremiumDb === true && Boolean(subRow?.stripeCustomerId);
+
   return (
     <div>
       <ConfiguracoesSubpageHeader title="Plano e pagamento" />
-      {isPremiumEffective ? (
+      <Suspense fallback={null}>
         <ConfiguracoesPlanoClient
-          mode="premium"
-          ridesThisMonth={ridesCount}
-          ridesLimit={FREE_RIDES_PER_MONTH}
+          planDb={planDb}
+          isDeveloperAccount={devAccount}
+          signupTrialActive={signupTrialActive}
+          trialDaysRemaining={trialDaysRemaining}
+          trialEndedLocked={trialEndedLocked}
           nextBillingIso={nextBillingIso}
           cardLast4={cardLast4}
-          canUseStripe={isPremiumDb && Boolean(subRow?.stripeCustomerId)}
+          canOpenBillingPortal={canOpenBillingPortal}
           cancelAtPeriodEnd={subRow?.cancelAtPeriodEnd ?? false}
+          stripeConfigured={stripeConfigured}
+          stripeYearlyConfigured={stripeYearlyConfigured}
         />
-      ) : (
-        <ConfiguracoesPlanoClient
-          mode="free"
-          ridesThisMonth={ridesCount}
-          ridesLimit={FREE_RIDES_PER_MONTH}
-          nextBillingIso={null}
-          cardLast4={null}
-          canUseStripe={false}
-          cancelAtPeriodEnd={false}
-        />
-      )}
+      </Suspense>
     </div>
   );
 }

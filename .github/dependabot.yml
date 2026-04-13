@@ -1,0 +1,16 @@
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "America/Sao_Paulo"
+    open-pull-requests-limit: 8
+    labels:
+      - "dependencies"
+      - "security"
+    # SECURITY-GAPS §4.5 — descomente e defina o(s) revisor(es) GitHub (username ou team org/nome)
+    # reviewers:
+    #   - "seu-usuario-github"

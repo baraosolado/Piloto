@@ -1,7 +1,5 @@
 import { RateLimiterMemory } from "rate-limiter-flexible";
 
-type HeaderBag = { get(name: string): string | null };
-
 /** Sign-in / sign-up etc.: 5 req / 15 min por IP */
 export const authRateLimiter = new RateLimiterMemory({
   points: 5,
@@ -13,17 +11,6 @@ export const apiRateLimiter = new RateLimiterMemory({
   points: 100,
   duration: 60,
 });
-
-export function getClientIpFromHeaders(h: HeaderBag): string {
-  const xff = h.get("x-forwarded-for");
-  if (xff) {
-    const first = xff.split(",")[0]?.trim();
-    if (first) return first;
-  }
-  const realIp = h.get("x-real-ip")?.trim();
-  if (realIp) return realIp;
-  return "unknown";
-}
 
 export async function consumeAuthRateLimit(
   ip: string,

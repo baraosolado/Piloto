@@ -1,25 +1,22 @@
 import { NextResponse } from "next/server";
-import { getSessionUserId } from "@/lib/api-session";
-import { createPortalSession, getStripe } from "@/lib/stripe";
+import { runWithAppUserId } from "@/db/run-with-app-user-id";
+import { getAppBaseUrl } from "@/lib/app-base-url";
+import { requireSession } from "@/lib/api-session";
+import {
+  createPortalSession,
+  getStripe,
+  getStripeErrorMessage,
+} from "@/lib/stripe";
 import { ensureSubscriptionRow } from "@/lib/subscriptions-repo";
 
 export const runtime = "nodejs";
 
-function appBaseUrl(): string {
-  const u =
-    process.env.NEXT_PUBLIC_APP_URL?.trim() ||
-    process.env.BETTER_AUTH_URL?.trim();
-  if (!u) {
-    throw new Error("NEXT_PUBLIC_APP_URL ou BETTER_AUTH_URL é obrigatório");
-  }
-  return u.replace(/\/$/, "");
-}
-
 export async function POST() {
-  const auth = await getSessionUserId();
+  const auth = await requireSession();
   if ("response" in auth) return auth.response;
 
   try {
+    return await runWithAppUserId(auth.userId, async () => {
     void getStripe();
     const subRow = await ensureSubscriptionRow(auth.userId);
     if (!subRow.stripeCustomerId) {
@@ -35,10 +32,10 @@ export async function POST() {
       );
     }
 
-    const base = appBaseUrl();
+    const base = getAppBaseUrl();
     const portal = await createPortalSession(
       subRow.stripeCustomerId,
-      `${base}/planos`,
+      `${base}/configuracoes/plano`,
     );
     const url = portal.url;
     if (!url) {
@@ -55,11 +52,13 @@ export async function POST() {
     }
 
     return NextResponse.json({ data: { url }, error: null });
+    });
   } catch (e) {
-    const raw =
-      e instanceof Error ? e.message : "Erro ao abrir portal de cobrança.";
+    const raw = getStripeErrorMessage(e);
     const isConfig =
-      raw.includes("não está configurada") || raw.includes("obrigatório");
+      raw.includes("não está configurada") ||
+      raw.includes("obrigatório") ||
+      raw.includes("protocolo");
     const message =
       process.env.NODE_ENV === "production"
         ? "Erro ao processar pagamento. Tente novamente."

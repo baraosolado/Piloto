@@ -7,6 +7,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { formatBRL, formatPercent } from "@/lib/format-reports";
+import { cn } from "@/lib/utils";
 
 export type ExpenseCategoryRow = {
   label: string;
@@ -18,13 +19,22 @@ export type ExpenseCategoryRow = {
 export function ExpensesTable({
   rows,
   total,
+  visual = "default",
 }: {
   rows: ExpenseCategoryRow[];
   total: number;
+  visual?: "default" | "cockpit";
 }) {
+  const cockpit = visual === "cockpit";
+
   if (rows.length === 0) {
     return (
-      <p className="text-sm text-muted-foreground">
+      <p
+        className={cn(
+          "text-sm",
+          cockpit ? "text-[#3b3b3b]" : "text-muted-foreground",
+        )}
+      >
         Nenhum gasto registrado neste período.
       </p>
     );
@@ -35,15 +45,49 @@ export function ExpensesTable({
       <div className="overflow-x-auto">
         <Table>
           <TableHeader>
-            <TableRow className="hover:bg-transparent">
-              <TableHead>Categoria</TableHead>
-              <TableHead className="text-right">Valor</TableHead>
-              <TableHead className="w-[120px] text-right">% do total</TableHead>
+            <TableRow
+              className={cn(
+                "border-0 hover:bg-transparent",
+                cockpit && "bg-black",
+              )}
+            >
+              <TableHead
+                className={cn(
+                  cockpit &&
+                    "rounded-tl-md py-3 text-[10px] font-bold uppercase tracking-wider text-white",
+                )}
+              >
+                Categoria
+              </TableHead>
+              <TableHead
+                className={cn(
+                  "text-right",
+                  cockpit &&
+                    "py-3 text-[10px] font-bold uppercase tracking-wider text-white",
+                )}
+              >
+                Valor
+              </TableHead>
+              <TableHead
+                className={cn(
+                  "w-[120px] text-right",
+                  cockpit &&
+                    "rounded-tr-md py-3 text-[10px] font-bold uppercase tracking-wider text-white",
+                )}
+              >
+                % do total
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {rows.map((r) => (
-              <TableRow key={r.label}>
+            {rows.map((r, idx) => (
+              <TableRow
+                key={r.label}
+                className={cn(
+                  cockpit && idx % 2 === 1 && "bg-[#f3f3f3]",
+                  cockpit && "border-0 hover:bg-[#ebebeb]",
+                )}
+              >
                 <TableCell>
                   <div className="font-medium">{r.label}</div>
                   <div className="mt-1 h-[3px] w-full overflow-hidden rounded-none bg-[#EEEEEE]">

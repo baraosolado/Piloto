@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Database, Download, Loader2, TriangleAlert } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -23,6 +23,61 @@ export function ConfiguracoesContaClient() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [confirmText, setConfirmText] = useState("");
   const [deleting, setDeleting] = useState(false);
+  const [lgpdBanner, setLgpdBanner] = useState<"loading" | "show" | "hide">(
+    "loading",
+  );
+  const [lgpdSaving, setLgpdSaving] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/user/lgpd-consent", {
+          credentials: "include",
+        });
+        if (cancelled) return;
+        if (!res.ok) {
+          setLgpdBanner("hide");
+          return;
+        }
+        const j = (await res.json()) as {
+          data?: { acceptedAt?: string | null };
+        };
+        const at = j.data?.acceptedAt;
+        setLgpdBanner(at ? "hide" : "show");
+      } catch {
+        if (!cancelled) setLgpdBanner("hide");
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  async function recordLgpdConsent() {
+    setLgpdSaving(true);
+    try {
+      const res = await fetch("/api/user/lgpd-consent", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: "{}",
+      });
+      const j = (await res.json().catch(() => null)) as {
+        data?: { acceptedAt?: string };
+        error?: { message?: string };
+      } | null;
+      if (!res.ok) {
+        throw new Error(j?.error?.message ?? "Não foi possível registar.");
+      }
+      setLgpdBanner("hide");
+      toast.success("Consentimento registado.");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Erro ao registar.");
+    } finally {
+      setLgpdSaving(false);
+    }
+  }
 
   async function exportData() {
     setExporting(true);
@@ -36,7 +91,7 @@ export function ConfiguracoesContaClient() {
       }
       const blob = await res.blob();
       const cd = res.headers.get("Content-Disposition");
-      let filename = "piloto-export.zip";
+      let filename = "copilote-export.zip";
       const m = cd && /filename="([^"]+)"/.exec(cd);
       if (m?.[1]) filename = m[1];
       const href = URL.createObjectURL(blob);
@@ -115,6 +170,34 @@ export function ConfiguracoesContaClient() {
           </div>
         </div>
       </section>
+
+      {lgpdBanner === "show" ? (
+        <section
+          id="registo-consentimento-lgpd"
+          className="scroll-mt-24 space-y-4"
+        >
+          <h3 className="text-xl font-bold text-black">Consentimento LGPD</h3>
+          <div className="rounded-xl border border-amber-200 bg-amber-50/80 p-6">
+            <p className="mb-4 text-sm text-amber-950/90">
+              Ainda não há registo no servidor da aceitação da Política de
+              Privacidade e dos Termos. Toque abaixo para gravar agora (é
+              necessário uma única vez).
+            </p>
+            <Button
+              type="button"
+              className="h-12 font-bold"
+              onClick={recordLgpdConsent}
+              disabled={lgpdSaving}
+            >
+              {lgpdSaving ? (
+                <Loader2 className="size-5 animate-spin" />
+              ) : (
+                "Registar consentimento"
+              )}
+            </Button>
+          </div>
+        </section>
+      ) : null}
 
       <section className="space-y-4">
         <h3 className="flex items-center gap-2 text-xl font-bold text-destructive">

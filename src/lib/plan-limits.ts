@@ -1,6 +1,7 @@
 import { and, between, count, eq } from "drizzle-orm";
-import { db } from "@/db";
-import { expenses, rides, subscriptions } from "@/db/schema";
+import { getRequestDb } from "@/db/request-db";
+import { expenses, rides, subscriptions, users } from "@/db/schema";
+import { PREMIUM_TRIAL_DAYS } from "@/lib/pricing";
 
 export const FREE_RIDES_PER_MONTH = 50;
 export const FREE_EXPENSES_PER_MONTH = 20;
@@ -34,13 +35,56 @@ export function isDeveloperAccount(
   return false;
 }
 
-/** Plano efetivo para UI e limites: desenvolvedor ou assinatura Premium no banco. */
+/** Fim do trial local (conta criada → N dias com tudo liberado, sem Stripe). */
+export function signupTrialEndsAt(createdAt: Date): Date {
+  return new Date(
+    createdAt.getTime() + PREMIUM_TRIAL_DAYS * 24 * 60 * 60 * 1000,
+  );
+}
+
+export async function getUserCreatedAt(
+  userId: string,
+): Promise<Date | null> {
+  const [row] = await getRequestDb()
+    .select({ createdAt: users.createdAt })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+  return row?.createdAt ?? null;
+}
+
+/** Trial de boas-vindas: acesso total até `PREMIUM_TRIAL_DAYS` após criação da conta. */
+export async function hasSignupTrialActive(userId: string): Promise<boolean> {
+  const created = await getUserCreatedAt(userId);
+  if (!created) return false;
+  return Date.now() < signupTrialEndsAt(created).getTime();
+}
+
+/**
+ * Conta “travada”: trial acabou e não há Premium no banco (Stripe).
+ * Desenvolvedores nunca ficam bloqueados.
+ */
+export async function isAccountLockedWithoutSubscription(
+  userId: string,
+  email: string | null | undefined,
+): Promise<boolean> {
+  if (isDeveloperAccount(userId, email)) return false;
+  if ((await getUserPlan(userId)) === "premium") return false;
+  return !(await hasSignupTrialActive(userId));
+}
+
+/**
+ * Plano efetivo para UI, paywalls e limites:
+ * Premium se desenvolvedor, assinatura no banco, **ou** dentro do trial de N dias.
+ */
 export async function getEffectivePlan(
   userId: string,
   email: string | null | undefined = null,
 ): Promise<"free" | "premium"> {
   if (isDeveloperAccount(userId, email)) return "premium";
-  return getUserPlan(userId);
+  if ((await getUserPlan(userId)) === "premium") return "premium";
+  if (await hasSignupTrialActive(userId)) return "premium";
+  return "free";
 }
 
 function utcMonthRange(reference = new Date()): { start: Date; end: Date } {
@@ -54,7 +98,7 @@ function utcMonthRange(reference = new Date()): { start: Date; end: Date } {
 export async function getUserPlan(
   userId: string,
 ): Promise<"free" | "premium"> {
-  const [row] = await db
+  const [row] = await getRequestDb()
     .select({ plan: subscriptions.plan })
     .from(subscriptions)
     .where(eq(subscriptions.userId, userId))
@@ -67,7 +111,7 @@ export async function countRidesThisMonth(
   reference = new Date(),
 ): Promise<number> {
   const { start, end } = utcMonthRange(reference);
-  const [row] = await db
+  const [row] = await getRequestDb()
     .select({ n: count() })
     .from(rides)
     .where(
@@ -81,7 +125,7 @@ export async function countExpensesThisMonth(
   reference = new Date(),
 ): Promise<number> {
   const { start, end } = utcMonthRange(reference);
-  const [row] = await db
+  const [row] = await getRequestDb()
     .select({ n: count() })
     .from(expenses)
     .where(

@@ -39,7 +39,7 @@ export function PremiumGate({
           asChild
           className="h-10 shrink-0 bg-[#00a651] font-bold text-white hover:bg-[#00a651]/90"
         >
-          <Link href="/planos">Desbloquear por R$19,90/mês</Link>
+          <Link href="/configuracoes/plano">Premium — 7 dias grátis</Link>
         </Button>
       </div>
       <div

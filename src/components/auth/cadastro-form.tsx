@@ -34,10 +34,16 @@ const signupSchema = z
       .regex(/[0-9]/, "Inclua números")
       .regex(/[A-ZÀ-Ÿ]/, "Inclua uma letra maiúscula"),
     confirmPassword: z.string().min(1, "Confirme a senha"),
+    lgpdConsent: z.coerce.boolean(),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: "As senhas não coincidem",
     path: ["confirmPassword"],
+  })
+  .refine((data) => data.lgpdConsent === true, {
+    message:
+      "Marque a caixa para aceitar a Política de Privacidade e os Termos de Uso.",
+    path: ["lgpdConsent"],
   });
 
 export type SignupFormValues = z.infer<typeof signupSchema>;
@@ -47,6 +53,25 @@ const fieldClass =
 
 const labelClass =
   "ml-1 text-[12px] font-medium tracking-widest text-[#474747] uppercase";
+
+/** Persiste consentimento LGPD no servidor (sessão após sign-up; retentativas leves se o cookie ainda não estiver visível). */
+async function recordLgpdConsentAfterSignup(): Promise<boolean> {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const res = await fetch("/api/user/lgpd-consent", {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: "{}",
+    });
+    if (res.ok) return true;
+    if (res.status === 401 && attempt < 2) {
+      await new Promise((r) => setTimeout(r, 400));
+      continue;
+    }
+    break;
+  }
+  return false;
+}
 
 function PasswordRule({ met, label }: { met: boolean; label: string }) {
   return (
@@ -81,6 +106,7 @@ export function CadastroForm() {
       email: "",
       password: "",
       confirmPassword: "",
+      lgpdConsent: false,
     },
     mode: "onChange",
   });
@@ -110,6 +136,11 @@ export function CadastroForm() {
     }
 
     toast.success("Conta criada!");
+    if (!(await recordLgpdConsentAfterSignup())) {
+      toast.error(
+        "Não foi possível guardar o consentimento agora. Vá a Configurações → Conta e toque em «Registar consentimento».",
+      );
+    }
     router.push("/onboarding/veiculo");
     router.refresh();
   }
@@ -250,7 +281,45 @@ export function CadastroForm() {
         )}
       </div>
 
-      <div className="space-y-6 pt-6">
+      <div className="space-y-4 pt-2">
+        <label className="flex cursor-pointer items-start gap-3 text-left">
+          <input
+            type="checkbox"
+            className="mt-1 size-4 shrink-0 rounded border-[#c6c6c6] accent-[#006d33]"
+            disabled={pending}
+            aria-invalid={Boolean(form.formState.errors.lgpdConsent)}
+            {...form.register("lgpdConsent")}
+          />
+          <span className="text-[12px] leading-relaxed text-[#474747]">
+            Li e aceito a{" "}
+            <Link
+              href="/privacidade"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-semibold text-black underline underline-offset-2"
+            >
+              Política de Privacidade
+            </Link>{" "}
+            e os{" "}
+            <Link
+              href="/termos"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-semibold text-black underline underline-offset-2"
+            >
+              Termos de Uso
+            </Link>
+            .
+          </span>
+        </label>
+        {form.formState.errors.lgpdConsent && (
+          <p className="text-xs text-[#ba1a1a]">
+            {form.formState.errors.lgpdConsent.message}
+          </p>
+        )}
+      </div>
+
+      <div className="space-y-6 pt-4">
         <Button
           type="submit"
           disabled={pending}
@@ -287,25 +356,10 @@ export function CadastroForm() {
         </Link>
       </div>
 
-      <div className="pt-8 text-center">
-        <p className="px-4 text-[12px] leading-relaxed text-[#777777]">
-          Ao criar uma conta, você concorda com nossos{" "}
-          <Link
-            href="/termos"
-            className="text-[#474747] underline decoration-[#c6c6c6] underline-offset-2"
-          >
-            Termos de Uso
-          </Link>{" "}
-          e{" "}
-          <Link
-            href="/privacidade"
-            className="text-[#474747] underline decoration-[#c6c6c6] underline-offset-2"
-          >
-            Política de Privacidade
-          </Link>
-          .
-        </p>
-      </div>
+      <p className="px-1 pt-4 text-center text-[11px] leading-relaxed text-[#a3a3a3]">
+        O cadastro só é concluído após aceitar privacidade e termos na caixa acima
+        (LGPD).
+      </p>
     </form>
   );
 }

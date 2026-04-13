@@ -4,8 +4,10 @@ import { CorridasView } from "@/components/rides/corridas-view";
 import { RidesTableSkeleton } from "@/components/rides/rides-table-skeleton";
 import { getVehicleForUser } from "@/lib/dashboard-data";
 import type { Vehicle } from "@/lib/calculations";
+import { vehicleFromVehicleRow } from "@/lib/vehicle-powertrain";
 import { defaultRideListDateRange } from "@/lib/corridas-default-range";
 import { requireSession } from "@/lib/get-session";
+import { loadForAppUser } from "@/lib/load-for-app-user";
 import {
   countRidesThisMonth,
   getEffectivePlan,
@@ -16,11 +18,7 @@ function vehicleToCalc(
   row: Awaited<ReturnType<typeof getVehicleForUser>>,
 ): Vehicle | null {
   if (!row) return null;
-  return {
-    fuelConsumption: Number(row.fuelConsumption),
-    fuelPrice: Number(row.fuelPrice),
-    depreciationPerKm: Number(row.depreciationPerKm),
-  };
+  return vehicleFromVehicleRow(row);
 }
 
 function CorridasFallback() {
@@ -53,13 +51,18 @@ export default async function CorridasPage({
     redirect(`/corridas?${next.toString()}`);
   }
 
-  const vehicleRow = await getVehicleForUser(userId);
-  const vehicle = vehicleToCalc(vehicleRow);
-
-  const plan = await getEffectivePlan(userId, session.user.email);
-  const ridesThisMonth = await countRidesThisMonth(userId);
-  const showFreeLimitBanner =
-    plan === "free" && isFreeRideLimitReached(ridesThisMonth);
+  const { vehicle, showFreeLimitBanner } = await loadForAppUser(
+    userId,
+    async () => {
+      const vehicleRow = await getVehicleForUser(userId);
+      const vehicle = vehicleToCalc(vehicleRow);
+      const plan = await getEffectivePlan(userId, session.user.email);
+      const ridesThisMonth = await countRidesThisMonth(userId);
+      const showFreeLimitBanner =
+        plan === "free" && isFreeRideLimitReached(ridesThisMonth);
+      return { vehicle, showFreeLimitBanner };
+    },
+  );
 
   return (
     <Suspense fallback={<CorridasFallback />}>

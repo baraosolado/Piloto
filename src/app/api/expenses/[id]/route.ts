@@ -1,9 +1,13 @@
 import { NextResponse } from "next/server";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
-import { db } from "@/db";
-import { expenses } from "@/db/schema";
-import { getSessionUserId } from "@/lib/api-session";
+import { getRequestDb } from "@/db/request-db";
+import { runWithAppUserId } from "@/db/run-with-app-user-id";
+import { expenses, vehicles } from "@/db/schema";
+import { requireSession } from "@/lib/api-session";
+import { fuelExpenseUi, normalizePowertrain } from "@/lib/vehicle-powertrain";
+import { routeUuidParamSchema } from "@/lib/api-query-validators";
+import { logIfExpenseOwnedByOtherUser } from "@/lib/cross-tenant-log";
 
 const categorySchema = z.enum([
   "fuel",
@@ -61,11 +65,21 @@ export async function PATCH(
   request: Request,
   context: { params: Params },
 ) {
-  const auth = await getSessionUserId();
+  const auth = await requireSession();
   if ("response" in auth) return auth.response;
   const { userId } = auth;
 
   const { id } = await context.params;
+  const idParsed = routeUuidParamSchema.safeParse(id);
+  if (!idParsed.success) {
+    return NextResponse.json(
+      {
+        data: null,
+        error: { code: "VALIDATION", message: "ID inválido." },
+      },
+      { status: 400 },
+    );
+  }
 
   let json: unknown;
   try {
@@ -95,13 +109,15 @@ export async function PATCH(
     );
   }
 
-  const [existing] = await db
+  return runWithAppUserId(userId, async () => {
+  const [existing] = await getRequestDb()
     .select()
     .from(expenses)
-    .where(and(eq(expenses.id, id), eq(expenses.userId, userId)))
+    .where(and(eq(expenses.id, idParsed.data), eq(expenses.userId, userId)))
     .limit(1);
 
   if (!existing) {
+    await logIfExpenseOwnedByOtherUser(idParsed.data, userId);
     return NextResponse.json(
       {
         data: null,
@@ -115,6 +131,13 @@ export async function PATCH(
   const effectiveCategory = p.category ?? existing.category;
 
   if (effectiveCategory === "fuel") {
+    const [vRow] = await getRequestDb()
+      .select({ powertrain: vehicles.powertrain })
+      .from(vehicles)
+      .where(eq(vehicles.userId, userId))
+      .limit(1);
+    const fuelUi = fuelExpenseUi(normalizePowertrain(vRow?.powertrain));
+
     const nextOdometer =
       p.odometer !== undefined ? p.odometer : existing.odometer;
     if (nextOdometer === null || nextOdometer === undefined) {
@@ -123,7 +146,7 @@ export async function PATCH(
           data: null,
           error: {
             code: "VALIDATION_ERROR",
-            message: "Odômetro obrigatório para combustível.",
+            message: fuelUi.apiOdometerRequired,
           },
         },
         { status: 400 },
@@ -145,7 +168,7 @@ export async function PATCH(
           data: null,
           error: {
             code: "VALIDATION_ERROR",
-            message: "Litros obrigatórios para combustível.",
+            message: fuelUi.apiVolumeRequired,
           },
         },
         { status: 400 },
@@ -164,15 +187,26 @@ export async function PATCH(
   if (p.description !== undefined) updatePayload.description = p.description;
   if (p.occurredAt !== undefined) updatePayload.occurredAt = p.occurredAt;
 
-  const [updated] = await db
+  const [updated] = await getRequestDb()
     .update(expenses)
     .set(updatePayload)
-    .where(and(eq(expenses.id, id), eq(expenses.userId, userId)))
+    .where(and(eq(expenses.id, idParsed.data), eq(expenses.userId, userId)))
     .returning();
+
+  if (!updated) {
+    return NextResponse.json(
+      {
+        data: null,
+        error: { code: "INTERNAL", message: "Falha ao atualizar." },
+      },
+      { status: 500 },
+    );
+  }
 
   return NextResponse.json({
     data: { expense: serializeExpense(updated) },
     error: null,
+  });
   });
 }
 
@@ -180,18 +214,30 @@ export async function DELETE(
   _request: Request,
   context: { params: Params },
 ) {
-  const auth = await getSessionUserId();
+  const auth = await requireSession();
   if ("response" in auth) return auth.response;
   const { userId } = auth;
 
   const { id } = await context.params;
+  const idParsed = routeUuidParamSchema.safeParse(id);
+  if (!idParsed.success) {
+    return NextResponse.json(
+      {
+        data: null,
+        error: { code: "VALIDATION", message: "ID inválido." },
+      },
+      { status: 400 },
+    );
+  }
 
-  const deleted = await db
+  return runWithAppUserId(userId, async () => {
+  const deleted = await getRequestDb()
     .delete(expenses)
-    .where(and(eq(expenses.id, id), eq(expenses.userId, userId)))
+    .where(and(eq(expenses.id, idParsed.data), eq(expenses.userId, userId)))
     .returning({ id: expenses.id });
 
   if (deleted.length === 0) {
+    await logIfExpenseOwnedByOtherUser(idParsed.data, userId);
     return NextResponse.json(
       {
         data: null,
@@ -202,4 +248,5 @@ export async function DELETE(
   }
 
   return NextResponse.json({ data: { id: deleted[0].id }, error: null });
+  });
 }

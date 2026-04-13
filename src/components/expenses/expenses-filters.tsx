@@ -17,6 +17,7 @@ import {
   defaultRideListDateRange,
   isDefaultRideListRange,
 } from "@/lib/corridas-default-range";
+import { fuelCategoryUiLabel, type VehiclePowertrain } from "@/lib/vehicle-powertrain";
 import { cn } from "@/lib/utils";
 
 const SORT_OPTIONS = [
@@ -28,9 +29,14 @@ const SORT_OPTIONS = [
 
 type ExpensesFiltersProps = {
   className?: string;
+  vehiclePowertrain: VehiclePowertrain;
 };
 
-export function ExpensesFilters({ className }: ExpensesFiltersProps) {
+export function ExpensesFilters({
+  className,
+  vehiclePowertrain,
+}: ExpensesFiltersProps) {
+  const fuelLabel = fuelCategoryUiLabel(vehiclePowertrain);
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -112,7 +118,7 @@ export function ExpensesFilters({ className }: ExpensesFiltersProps) {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todas</SelectItem>
-            <SelectItem value="fuel">Combustível</SelectItem>
+            <SelectItem value="fuel">{fuelLabel}</SelectItem>
             <SelectItem value="maintenance">Manutenção</SelectItem>
             <SelectItem value="insurance">Seguro</SelectItem>
             <SelectItem value="fine">Multa</SelectItem>

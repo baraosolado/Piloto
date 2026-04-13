@@ -233,7 +233,7 @@ export function MetaForm() {
             aria-hidden
           />
           <p className="text-sm leading-snug text-[#00461e]">
-            Sua meta ajuda o <strong>Piloto</strong> a calcular quanto você precisa
+            Sua meta ajuda o <strong>Copilote</strong> a calcular quanto você precisa
             faturar por hora em tempo real.
           </p>
         </div>
@@ -255,7 +255,7 @@ export function MetaForm() {
           onClick={handleSubmit}
           className="flex max-w-[280px] flex-1 items-center justify-center gap-2 rounded-xl bg-black py-4 px-6 text-base font-bold text-white shadow-lg transition-all hover:opacity-95 active:scale-[0.98] disabled:opacity-50"
         >
-          Começar a usar o Piloto
+          Começar a usar o Copilote
           <ArrowRight className="size-5" strokeWidth={2.5} />
         </button>
       </nav>

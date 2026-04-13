@@ -13,29 +13,45 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ProgressSteps } from "@/components/onboarding/progress-steps";
 import { cn } from "@/lib/utils";
+import {
+  fuelPriceBounds,
+  previewConsumptionKmPerUnit,
+  VEHICLE_POWERTRAINS,
+  type VehiclePowertrain,
+} from "@/lib/vehicle-powertrain";
 
 const MAX_YEAR = 2026;
 
-const vehicleFormSchema = z.object({
-  model: z.string().min(1, "Informe o modelo"),
-  year: z.coerce
-    .number({ invalid_type_error: "Informe o ano" })
-    .int()
-    .min(1990, "Ano mínimo 1990")
-    .max(MAX_YEAR, `Ano máximo ${MAX_YEAR}`),
-  fuelConsumption: z.coerce
-    .number({ invalid_type_error: "Informe o consumo" })
-    .min(3, "Mínimo 3 km/l")
-    .max(30, "Máximo 30 km/l"),
-  fuelPrice: z.coerce
-    .number({ invalid_type_error: "Informe o preço" })
-    .min(3, "Mínimo R$ 3/l")
-    .max(15, "Máximo R$ 15/l"),
-  currentOdometer: z.preprocess(
-    (v) => (v === "" || v === undefined || v === null ? undefined : Number(v)),
-    z.number().min(0, "Km não pode ser negativo").optional(),
-  ),
-});
+const vehicleFormSchema = z
+  .object({
+    model: z.string().min(1, "Informe o modelo"),
+    year: z.coerce
+      .number({ invalid_type_error: "Informe o ano" })
+      .int()
+      .min(1990, "Ano mínimo 1990")
+      .max(MAX_YEAR, `Ano máximo ${MAX_YEAR}`),
+    powertrain: z.enum(VEHICLE_POWERTRAINS),
+    fuelPrice: z.coerce.number({
+      invalid_type_error: "Informe o preço",
+    }),
+    currentOdometer: z.preprocess(
+      (v) => (v === "" || v === undefined || v === null ? undefined : Number(v)),
+      z.number().min(0, "Km não pode ser negativo").optional(),
+    ),
+  })
+  .superRefine((data, ctx) => {
+    const { min, max } = fuelPriceBounds(data.powertrain);
+    if (!Number.isFinite(data.fuelPrice) || data.fuelPrice < min || data.fuelPrice > max) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["fuelPrice"],
+        message:
+          data.powertrain === "electric"
+            ? `Entre R$ ${min} e R$ ${max} por kWh (conta de luz / recarga).`
+            : `Entre R$ ${min} e R$ ${max} por litro.`,
+      });
+    }
+  });
 
 export type VehicleFormValues = z.infer<typeof vehicleFormSchema>;
 
@@ -52,6 +68,11 @@ const money = new Intl.NumberFormat("pt-BR", {
   maximumFractionDigits: 2,
 });
 
+const powertrainLabel: Record<VehiclePowertrain, string> = {
+  combustion: "Combustão (gasolina, etanol, flex, diesel…)",
+  electric: "Elétrico (100% elétrico ou híbrido plug-in em modo elétrico)",
+};
+
 export function VeiculoForm() {
   const router = useRouter();
   const form = useForm<VehicleFormValues>({
@@ -59,24 +80,24 @@ export function VeiculoForm() {
     defaultValues: {
       model: "",
       year: undefined as unknown as number,
-      fuelConsumption: undefined as unknown as number,
+      powertrain: "combustion",
       fuelPrice: undefined as unknown as number,
       currentOdometer: undefined,
     },
     mode: "onChange",
   });
 
-  const consumption = form.watch("fuelConsumption");
   const price = form.watch("fuelPrice");
+  const powertrain = form.watch("powertrain");
 
   const costPerKm = useMemo(() => {
-    const c = Number(consumption);
     const p = Number(price);
-    if (!Number.isFinite(c) || c <= 0 || !Number.isFinite(p) || p <= 0) {
+    if (!Number.isFinite(p) || p <= 0) {
       return null;
     }
-    return p / c;
-  }, [consumption, price]);
+    const previewKmPerUnit = previewConsumptionKmPerUnit(powertrain);
+    return p / previewKmPerUnit;
+  }, [price, powertrain]);
 
   async function onSubmit(data: VehicleFormValues) {
     const res = await fetch("/api/vehicle", {
@@ -85,7 +106,7 @@ export function VeiculoForm() {
       body: JSON.stringify({
         model: data.model.trim(),
         year: data.year,
-        fuelConsumption: data.fuelConsumption,
+        powertrain: data.powertrain,
         fuelPrice: data.fuelPrice,
         ...(data.currentOdometer !== undefined
           ? { currentOdometer: data.currentOdometer }
@@ -109,6 +130,7 @@ export function VeiculoForm() {
   }
 
   const pending = form.formState.isSubmitting;
+  const isElectric = powertrain === "electric";
 
   return (
     <div className="min-h-screen bg-white text-[#1a1c1c] antialiased">
@@ -123,7 +145,7 @@ export function VeiculoForm() {
               <ArrowLeft className="size-6" strokeWidth={2} />
             </Link>
             <span className="text-xl font-bold tracking-tight text-black uppercase">
-              Piloto
+              Copilote
             </span>
           </div>
           <button
@@ -151,6 +173,32 @@ export function VeiculoForm() {
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
           <div className="space-y-6">
             <div>
+              <Label className={labelClass}>Tipo de veículo</Label>
+              <div className="flex flex-col gap-3">
+                {VEHICLE_POWERTRAINS.map((value) => (
+                  <label
+                    key={value}
+                    className={cn(
+                      "flex cursor-pointer items-start gap-3 rounded-xl border-2 border-transparent bg-[#e8e8e8] px-4 py-3 transition-colors",
+                      powertrain === value && "border-[#006d33] bg-[#e8f5ec]",
+                    )}
+                  >
+                    <input
+                      type="radio"
+                      value={value}
+                      disabled={pending}
+                      className="mt-1 size-4 accent-[#006d33]"
+                      {...form.register("powertrain")}
+                    />
+                    <span className="text-sm font-medium leading-snug text-black">
+                      {powertrainLabel[value]}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <div>
               <Label htmlFor="model" className={labelClass}>
                 Modelo do veículo
               </Label>
@@ -168,60 +216,29 @@ export function VeiculoForm() {
               )}
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="year" className={labelClass}>
-                  Ano
-                </Label>
-                <Input
-                  id="year"
-                  type="number"
-                  inputMode="numeric"
-                  placeholder="2020"
-                  disabled={pending}
-                  className={cn(fieldClass, form.formState.errors.year && "border-b-[#ba1a1a]")}
-                  {...form.register("year")}
-                />
-                {form.formState.errors.year && (
-                  <p className="mt-1 text-xs text-[#ba1a1a]">
-                    {form.formState.errors.year.message}
-                  </p>
-                )}
-              </div>
-              <div>
-                <Label htmlFor="fuelConsumption" className={labelClass}>
-                  Consumo médio
-                </Label>
-                <div className="relative">
-                  <Input
-                    id="fuelConsumption"
-                    type="number"
-                    inputMode="decimal"
-                    step="0.1"
-                    placeholder="12,5"
-                    disabled={pending}
-                    className={cn(
-                      fieldClass,
-                      "pr-14",
-                      form.formState.errors.fuelConsumption && "border-b-[#ba1a1a]",
-                    )}
-                    {...form.register("fuelConsumption")}
-                  />
-                  <span className="pointer-events-none absolute top-1/2 right-4 -translate-y-1/2 text-sm font-medium text-[#474747]">
-                    km/l
-                  </span>
-                </div>
-                {form.formState.errors.fuelConsumption && (
-                  <p className="mt-1 text-xs text-[#ba1a1a]">
-                    {form.formState.errors.fuelConsumption.message}
-                  </p>
-                )}
-              </div>
+            <div>
+              <Label htmlFor="year" className={labelClass}>
+                Ano
+              </Label>
+              <Input
+                id="year"
+                type="number"
+                inputMode="numeric"
+                placeholder="2020"
+                disabled={pending}
+                className={cn(fieldClass, form.formState.errors.year && "border-b-[#ba1a1a]")}
+                {...form.register("year")}
+              />
+              {form.formState.errors.year && (
+                <p className="mt-1 text-xs text-[#ba1a1a]">
+                  {form.formState.errors.year.message}
+                </p>
+              )}
             </div>
 
             <div>
               <Label htmlFor="fuelPrice" className={labelClass}>
-                Preço do combustível
+                {isElectric ? "Preço da energia (conta ou recarga)" : "Preço do combustível"}
               </Label>
               <div className="relative">
                 <span className="pointer-events-none absolute top-1/2 left-4 z-10 -translate-y-1/2 text-sm font-bold text-[#474747]">
@@ -232,7 +249,7 @@ export function VeiculoForm() {
                   type="number"
                   inputMode="decimal"
                   step="0.01"
-                  placeholder="5,89"
+                  placeholder={isElectric ? "0,89" : "5,89"}
                   disabled={pending}
                   className={cn(
                     fieldClass,
@@ -242,7 +259,7 @@ export function VeiculoForm() {
                   {...form.register("fuelPrice")}
                 />
                 <span className="pointer-events-none absolute top-1/2 right-4 -translate-y-1/2 text-sm font-medium text-[#474747]">
-                  /litro
+                  {isElectric ? "/kWh" : "/litro"}
                 </span>
               </div>
               {form.formState.errors.fuelPrice && (
@@ -308,12 +325,22 @@ export function VeiculoForm() {
               <p className="max-w-xs text-sm leading-relaxed text-white/85">
                 {costPerKm !== null ? (
                   <>
-                    Com esses dados, seu custo estimado é de{" "}
+                    Com esses dados, seu custo energético estimado é de{" "}
                     <span className="font-bold text-white">{money.format(costPerKm)}</span> por
                     km
                   </>
+                ) : isElectric ? (
+                  <>
+                    Informe o preço por kWh. A prévia usa{" "}
+                    {previewConsumptionKmPerUnit("electric")} km/kWh até você ajustar o consumo
+                    ao registrar o dia em Corridas.
+                  </>
                 ) : (
-                  "Informe consumo e preço do combustível para estimar o custo por km."
+                  <>
+                    Informe o preço do combustível. A prévia usa{" "}
+                    {previewConsumptionKmPerUnit("combustion")} km/l até você ajustar o
+                    consumo ao registrar o dia em Corridas.
+                  </>
                 )}
               </p>
             </div>

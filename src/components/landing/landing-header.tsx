@@ -26,7 +26,7 @@ export function LandingHeader() {
         <Link href="/" className="flex min-w-0 shrink-0 items-center gap-2">
           <Gauge className="size-8 shrink-0 text-black" strokeWidth={2} aria-hidden />
           <span className="text-2xl font-black tracking-tighter text-black">
-            Piloto
+            Copilote
           </span>
         </Link>
         <div className="hidden items-center gap-8 md:flex">

@@ -48,7 +48,8 @@ ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=3000
 
-RUN addgroup --system --gid 1001 nodejs \
+RUN apk add --no-cache curl \
+  && addgroup --system --gid 1001 nodejs \
   && adduser --system --uid 1001 nextjs
 
 COPY --from=builder /app/public ./public
@@ -61,11 +62,15 @@ COPY --from=builder /app/drizzle.config.ts ./drizzle.config.ts
 COPY --from=builder /app/tsconfig.json ./tsconfig.json
 COPY --from=builder /app/src/db ./src/db
 COPY scripts/docker-entrypoint.sh ./scripts/docker-entrypoint.sh
-RUN chmod +x ./scripts/docker-entrypoint.sh \
+COPY scripts/run-cron-tasks.sh ./scripts/run-cron-tasks.sh
+RUN chmod +x ./scripts/docker-entrypoint.sh ./scripts/run-cron-tasks.sh \
   && chown -R nextjs:nodejs ./src/db ./scripts ./drizzle.config.ts ./tsconfig.json
 
 USER nextjs
 EXPOSE 3000
+
+HEALTHCHECK --interval=30s --timeout=8s --start-period=70s --retries=3 \
+  CMD node -e "fetch('http://127.0.0.1:'+(process.env.PORT||3000)+'/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 
 ENTRYPOINT ["./scripts/docker-entrypoint.sh"]
 CMD ["npm", "run", "start"]

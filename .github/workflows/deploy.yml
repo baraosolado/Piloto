@@ -59,5 +59,5 @@ jobs:
           script_stop: true
           script: |
             set -euo pipefail
-            cd /var/www/piloto
+            cd /var/www/copilote
             bash scripts/deploy.sh

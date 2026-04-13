@@ -9,6 +9,7 @@ node_modules
 coverage
 .turbo
 .cursor
+docs
 terminals
 *.log
 logs

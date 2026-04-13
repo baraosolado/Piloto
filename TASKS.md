@@ -1,4 +1,4 @@
-# Tasks do Cursor — Piloto SaaS
+# Tasks do Cursor — Copilote SaaS
 **Desenvolvimento página por página, integrado e incremental**
 
 > **Como usar:** Cole cada task no Cursor como um prompt separado. Execute em ordem. Cada task é autocontida mas referencia o código já criado nas anteriores.
@@ -187,7 +187,7 @@ Crie os componentes de navegação do app autenticado.
 
 Crie src/components/layout/sidebar.tsx:
 - Fundo preto (#000000), largura 240px, altura 100vh, fixa
-- Logo "Piloto" no topo em branco, bold, 20px
+- Logo "Copilote" no topo em branco, bold, 20px
 - Navegação com os itens:
   Dashboard (/dashboard) → ícone LayoutDashboard
   Corridas (/corridas) → ícone Car
@@ -222,7 +222,7 @@ Crie a página de cadastro em src/app/(public)/cadastro/page.tsx.
 
 Layout split-screen:
 - Lado esquerdo (hidden em mobile, lg:flex): fundo preto, 50% da largura
-  - Logo "Piloto" em branco centralizado
+  - Logo "Copilote" em branco centralizado
   - Tagline: "Controle financeiro para quem dirige o próprio negócio"
   - 3 bullet points com ícones check brancos: "Calcule seu lucro real", "Veja qual turno compensa mais", "Grátis para começar"
 - Lado direito: fundo branco, 50% da largura (100% no mobile)
@@ -411,12 +411,12 @@ Card com 2 linhas:
 - "Meta por corrida: R$ X,XX" (valor ÷ 22 ÷ 8)
 Atualiza instantaneamente com onChange do input e slider
 
-Botão "Começar a usar o Piloto →" — preto full width
+Botão "Começar a usar o Copilote →" — preto full width
 
 Ao submeter:
 - POST /api/goals com monthlyTarget, month atual, year atual
 - Redirecionar para /dashboard com ?onboarding=complete
-- No dashboard, detectar o query param e mostrar toast "Tudo configurado! Bem-vindo ao Piloto 🚗"
+- No dashboard, detectar o query param e mostrar toast "Tudo configurado! Bem-vindo ao Copilote 🚗"
 
 Crie API route POST /api/goals:
 - Verificar sessão
@@ -818,16 +818,16 @@ Calcular:
 
 Gerar PDF com @react-pdf/renderer:
 Layout do relatório:
-- Cabeçalho: Logo "Piloto" + nome do usuário + "Relatório — [Mês] [Ano]"
+- Cabeçalho: Logo "Copilote" + nome do usuário + "Relatório — [Mês] [Ano]"
 - Seção 1: Resumo Financeiro (4 números em destaque)
 - Seção 2: Corridas por plataforma (tabela)
 - Seção 3: Gastos por categoria (lista)
 - Seção 4: Score de eficiência por turno
-- Rodapé: "Gerado pelo Piloto em DD/MM/AAAA"
+- Rodapé: "Gerado pelo Copilote em DD/MM/AAAA"
 
 Retornar o PDF como Response com headers:
 Content-Type: application/pdf
-Content-Disposition: attachment; filename="piloto-relatorio-[mes]-[ano].pdf"
+Content-Disposition: attachment; filename="copilote-relatorio-[mes]-[ano].pdf"
 ```
 
 ---
@@ -970,7 +970,7 @@ Crie a landing page completa em src/app/(public)/page.tsx.
 Seções em ordem:
 
 1. Header fixo:
-   Logo "Piloto" à esquerda
+   Logo "Copilote" à esquerda
    Botões "Entrar" (outline) e "Criar conta grátis" (preto) à direita
    Fundo branco, border-bottom 1px #EEEEEE ao fazer scroll
 
@@ -1071,7 +1071,7 @@ Crie os scripts e configurações de deploy.
 Crie o arquivo ecosystem.config.js para PM2:
 module.exports = {
   apps: [{
-    name: 'piloto',
+    name: 'copilote',
     script: 'node_modules/.bin/next',
     args: 'start',
     env_production: {
@@ -1086,7 +1086,7 @@ Crie o script scripts/deploy.sh:
 - npm ci
 - npm run build
 - npx drizzle-kit migrate
-- pm2 reload piloto --update-env
+- pm2 reload copilote --update-env
 
 Crie .github/workflows/deploy.yml para GitHub Actions:
 - Trigger: push na branch main

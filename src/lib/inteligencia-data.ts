@@ -3,7 +3,7 @@ import { ptBR } from "date-fns/locale";
 import {
   calculateCostPerKm,
   calculateEfficiencyScore,
-  calculateRideCost,
+  calculateRideCostForPnlAggregate,
   calculateRideProfit,
   groupRidesByPlatform,
   shiftKeyFromRideStartedAt,
@@ -21,6 +21,7 @@ import {
   type ExpenseRow,
   type RideRow,
 } from "@/lib/dashboard-data";
+import { vehicleFromVehicleRow } from "@/lib/vehicle-powertrain";
 
 export type ShiftRow = {
   key: keyof ScoreByShift;
@@ -82,11 +83,7 @@ function vehicleFromRow(
   row: Awaited<ReturnType<typeof getVehicleForUser>>,
 ): Vehicle | null {
   if (!row) return null;
-  return {
-    fuelConsumption: Number(row.fuelConsumption),
-    fuelPrice: Number(row.fuelPrice),
-    depreciationPerKm: Number(row.depreciationPerKm),
-  };
+  return vehicleFromVehicleRow(row);
 }
 
 const SHIFT_ORDER: {
@@ -142,7 +139,7 @@ function buildHeatmap(
     const ride = toRide(row);
     const mins = ride.durationMinutes;
     if (mins === null || mins <= 0) continue;
-    const cost = calculateRideCost(ride.distanceKm, vehicle);
+    const cost = calculateRideCostForPnlAggregate(ride.distanceKm, vehicle);
     if (Number.isNaN(cost)) continue;
     const p = calculateRideProfit(ride.grossAmount, cost);
     const h = mins / 60;
@@ -262,6 +259,7 @@ export async function getInteligenciaPremiumData(
         fuelConsumption: 1,
         fuelPrice: 0,
         depreciationPerKm: 0,
+        powertrain: "combustion",
       });
 
   const bestPlatform = pickBestPlatform(platforms);

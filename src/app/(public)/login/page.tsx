@@ -27,7 +27,7 @@ export default function LoginPage() {
               <ArrowLeft className="size-6" strokeWidth={2} aria-hidden />
             </Link>
             <span className="text-2xl font-black tracking-tighter text-black uppercase">
-              Piloto
+              Copilote
             </span>
           </div>
         </div>

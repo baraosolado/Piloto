@@ -31,6 +31,7 @@ import {
   calculateRideProfit,
   type Vehicle,
 } from "@/lib/calculations";
+import { consumptionBounds } from "@/lib/vehicle-powertrain";
 
 const PLATFORMS = [
   {
@@ -92,15 +93,26 @@ function pad(n: number) {
   return String(n).padStart(2, "0");
 }
 
-function defaultDatetimeLocal(): string {
+function defaultDayLocal(): string {
   const d = new Date();
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
-function isoToDatetimeLocal(iso: string): string {
+/** Data do dia (yyyy-MM-dd) a partir de um ISO salvo no banco. */
+function isoToDayInput(iso: string): string {
   const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return defaultDatetimeLocal();
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  if (Number.isNaN(d.getTime())) return defaultDayLocal();
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+/** Meio-dia local no dia escolhido (referência do “fechamento do dia”). */
+function dayInputToStartedAt(dayYmd: string): Date {
+  const parts = dayYmd.split("-").map((x) => Number.parseInt(x, 10));
+  if (parts.length !== 3 || parts.some((n) => !Number.isFinite(n))) {
+    return new Date();
+  }
+  const [y, m, d] = parts;
+  return new Date(y, m - 1, d, 12, 0, 0, 0);
 }
 
 function parseDecimalInput(raw: string): number {
@@ -118,9 +130,10 @@ type FormState = {
   platform: (typeof PLATFORMS)[number]["id"];
   gross: string;
   distance: string;
-  startedAt: string;
+  day: string;
   duration: string;
   notes: string;
+  fuelConsumption: string;
 };
 
 function emptyForm(): FormState {
@@ -128,23 +141,27 @@ function emptyForm(): FormState {
     platform: "uber",
     gross: "",
     distance: "",
-    startedAt: defaultDatetimeLocal(),
+    day: defaultDayLocal(),
     duration: "",
     notes: "",
+    fuelConsumption: "",
   };
 }
 
-function formFromRide(ride: RideFormRide): FormState {
+function formFromRide(ride: RideFormRide, vehicle: Vehicle | null): FormState {
   return {
     platform: ride.platform,
     gross: String(ride.grossAmount).replace(".", ","),
     distance: String(ride.distanceKm).replace(".", ","),
-    startedAt: isoToDatetimeLocal(ride.startedAt),
+    day: isoToDayInput(ride.startedAt),
     duration:
       ride.durationMinutes !== null && ride.durationMinutes > 0
         ? String(ride.durationMinutes)
         : "",
     notes: ride.notes ?? "",
+    fuelConsumption: vehicle
+      ? String(vehicle.fuelConsumption).replace(".", ",")
+      : "",
   };
 }
 
@@ -165,7 +182,7 @@ function RideFormBody({
 }) {
   const router = useRouter();
   const [form, setForm] = useState<FormState>(() =>
-    ride ? formFromRide(ride) : emptyForm(),
+    ride ? formFromRide(ride, vehicle) : emptyForm(),
   );
   const [pending, setPending] = useState(false);
 
@@ -173,21 +190,47 @@ function RideFormBody({
 
   useEffect(() => {
     if (!open) return;
-    setForm(ride ? formFromRide(ride) : emptyForm());
-  }, [open, ride]);
+    if (ride) {
+      setForm(formFromRide(ride, vehicle));
+    } else {
+      setForm({
+        ...emptyForm(),
+        fuelConsumption: vehicle
+          ? String(vehicle.fuelConsumption).replace(".", ",")
+          : "",
+      });
+    }
+  }, [open, ride, vehicle]);
 
   const grossNum = parseDecimalInput(form.gross);
   const distanceNum = parseDecimalInput(form.distance);
+  const fuelConsumptionNum = parseDecimalInput(form.fuelConsumption);
+
+  const energyPt =
+    vehicle?.powertrain === "electric" ? "electric" : "combustion";
+  const fcBounds = consumptionBounds(energyPt);
+
+  const previewVehicle = useMemo((): Vehicle | null => {
+    if (!vehicle) return null;
+    if (
+      Number.isFinite(fuelConsumptionNum) &&
+      fuelConsumptionNum >= fcBounds.min &&
+      fuelConsumptionNum <= fcBounds.max
+    ) {
+      return { ...vehicle, fuelConsumption: fuelConsumptionNum };
+    }
+    return vehicle;
+  }, [vehicle, fuelConsumptionNum, fcBounds.min, fcBounds.max]);
 
   const preview = useMemo(() => {
-    if (!vehicle || !Number.isFinite(distanceNum) || distanceNum <= 0) {
+    if (!previewVehicle || !Number.isFinite(distanceNum) || distanceNum <= 0) {
       return {
         cost: null as number | null,
         profit: null as number | null,
         profitPerKm: null as number | null,
       };
     }
-    const cost = calculateRideCost(distanceNum, vehicle);
+    const cost = calculateRideCost(distanceNum, previewVehicle);
     if (Number.isNaN(cost)) {
       return { cost: null, profit: null, profitPerKm: null };
     }
@@ -196,7 +239,7 @@ function RideFormBody({
     const profitPerKm =
       profit !== null && distanceNum > 0 ? profit / distanceNum : null;
     return { cost, profit, profitPerKm };
-  }, [vehicle, grossNum, distanceNum]);
+  }, [previewVehicle, grossNum, distanceNum]);
 
   const submit = async () => {
     if (!PLATFORMS.some((p) => p.id === form.platform)) {
@@ -208,12 +251,28 @@ function RideFormBody({
       return;
     }
     if (!Number.isFinite(distanceNum) || distanceNum <= 0) {
-      toast.error("Informe a distância em km.");
+      toast.error("Informe o total de km do dia.");
       return;
     }
-    const started = new Date(form.startedAt);
+    const started = dayInputToStartedAt(form.day);
     if (Number.isNaN(started.getTime())) {
-      toast.error("Data e hora inválidas.");
+      toast.error("Data do dia inválida.");
+      return;
+    }
+    if (!vehicle) {
+      toast.error("Cadastre o veículo antes de registrar.");
+      return;
+    }
+    if (
+      !Number.isFinite(fuelConsumptionNum) ||
+      fuelConsumptionNum < fcBounds.min ||
+      fuelConsumptionNum > fcBounds.max
+    ) {
+      toast.error(
+        energyPt === "electric"
+          ? `Informe o consumo (km/kWh), entre ${fcBounds.min} e ${fcBounds.max}.`
+          : `Informe o consumo médio (km/l), entre ${fcBounds.min} e ${fcBounds.max}.`,
+      );
       return;
     }
     let durationMinutes: number | null = null;
@@ -234,6 +293,7 @@ function RideFormBody({
           startedAt: started.toISOString(),
           durationMinutes,
           notes: form.notes.trim() ? form.notes.trim() : null,
+          fuelConsumption: fuelConsumptionNum,
         }
       : {
           platform: form.platform,
@@ -242,6 +302,7 @@ function RideFormBody({
           startedAt: started.toISOString(),
           durationMinutes,
           notes: form.notes.trim() || undefined,
+          fuelConsumption: fuelConsumptionNum,
         };
 
     setPending(true);
@@ -280,7 +341,7 @@ function RideFormBody({
             ? money.format(preview.profit)
             : "—";
 
-      toast.success(`Corrida salva! Lucro: ${profitFmt}`);
+      toast.success(`Dia salvo! Lucro estimado: ${profitFmt}`);
       setForm(emptyForm());
       onClose();
       onSaved?.();
@@ -324,7 +385,7 @@ function RideFormBody({
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="space-y-2">
             <Label htmlFor="ride-gross" className={labelClass}>
-              Valor bruto da corrida
+              Faturamento bruto do dia
             </Label>
             <div className="relative">
               <span className="absolute top-1/2 left-4 -translate-y-1/2 font-bold text-[#474747]">
@@ -341,11 +402,13 @@ function RideFormBody({
                 className={cn(fieldClass, "pl-11")}
               />
             </div>
-            <span className="text-[10px] text-[#777777]">Valor recebido</span>
+            <span className="text-[10px] text-[#777777]">
+              Soma do que entrou nas apps / particular
+            </span>
           </div>
           <div className="space-y-2">
             <Label htmlFor="ride-km" className={labelClass}>
-              Km rodados
+              Km rodados no dia
             </Label>
             <div className="relative">
               <Input
@@ -367,22 +430,22 @@ function RideFormBody({
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="space-y-2">
-            <Label htmlFor="ride-when" className={labelClass}>
-              Data e hora
+            <Label htmlFor="ride-day" className={labelClass}>
+              Dia do fechamento
             </Label>
             <Input
-              id="ride-when"
-              type="datetime-local"
-              value={form.startedAt}
+              id="ride-day"
+              type="date"
+              value={form.day}
               onChange={(e) =>
-                setForm((f) => ({ ...f, startedAt: e.target.value }))
+                setForm((f) => ({ ...f, day: e.target.value }))
               }
               className={cn(fieldClass, "text-sm font-medium")}
             />
           </div>
           <div className="space-y-2">
             <Label htmlFor="ride-dur" className={labelClass}>
-              Duração (opcional)
+              Tempo online (opcional)
             </Label>
             <div className="relative">
               <Input
@@ -399,8 +462,37 @@ function RideFormBody({
                 min
               </span>
             </div>
+            <span className="text-[10px] text-[#777777]">
+              Total de minutos ligado nas apps, se quiser acompanhar
+            </span>
           </div>
         </div>
+
+        {vehicle ? (
+          <div className="space-y-2">
+            <Label htmlFor="ride-fc" className={labelClass}>
+              Consumo médio do carro
+            </Label>
+            <div className="relative">
+              <Input
+                id="ride-fc"
+                inputMode="decimal"
+                placeholder={energyPt === "electric" ? "6,2" : "12,5"}
+                value={form.fuelConsumption}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, fuelConsumption: e.target.value }))
+                }
+                className={cn(fieldClass, "pr-16")}
+              />
+              <span className="absolute top-1/2 right-4 -translate-y-1/2 font-bold text-[#474747]">
+                {energyPt === "electric" ? "km/kWh" : "km/l"}
+              </span>
+            </div>
+            <span className="text-[10px] text-[#777777]">
+              Atualiza seu veículo a cada salvamento
+            </span>
+          </div>
+        ) : null}
 
         <div className="space-y-2">
           <Label htmlFor="ride-notes" className={labelClass}>
@@ -409,7 +501,7 @@ function RideFormBody({
           <textarea
             id="ride-notes"
             rows={3}
-            placeholder="Ex.: passageiro educado, gorjeta no app…"
+            placeholder="Ex.: chuva forte, muito trânsito…"
             value={form.notes}
             onChange={(e) =>
               setForm((f) => ({ ...f, notes: e.target.value }))
@@ -489,7 +581,7 @@ function RideFormBody({
           ) : (
             <>
               <Save className="size-5" strokeWidth={2} aria-hidden />
-              Salvar corrida
+              Salvar dia
             </>
           )}
         </Button>
@@ -529,7 +621,7 @@ export function RideFormDrawer({
     [isControlled, onOpenChange],
   );
 
-  const title = ride ? "Editar corrida" : "Nova corrida";
+  const title = ride ? "Editar resumo do dia" : "Resumo do dia";
 
   const sharedForm = (
     <RideFormBody
@@ -548,14 +640,14 @@ export function RideFormDrawer({
         <DialogHeader>
           <DialogTitle>Limite do plano gratuito</DialogTitle>
           <DialogDescription>
-            Você atingiu o limite de corridas deste mês. Faça upgrade para
-            registrar corridas ilimitadas.
+            Você atingiu o limite de registros deste mês. Faça upgrade para
+            registros ilimitados.
           </DialogDescription>
         </DialogHeader>
         <DialogFooter className="gap-2 sm:justify-stretch">
           <Button asChild className="bg-black">
-            <Link href="/planos" onClick={() => setUpgradeOpen(false)}>
-              Ver planos
+            <Link href="/configuracoes/plano" onClick={() => setUpgradeOpen(false)}>
+              Plano e pagamento
             </Link>
           </Button>
           <Button variant="outline" onClick={() => setUpgradeOpen(false)}>

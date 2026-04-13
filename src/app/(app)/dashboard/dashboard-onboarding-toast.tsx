@@ -13,7 +13,7 @@ export function DashboardOnboardingToast() {
     if (shown.current) return;
     if (searchParams.get("onboarding") !== "complete") return;
     shown.current = true;
-    toast.success("Tudo configurado! Bem-vindo ao Piloto 🚗");
+    toast.success("Tudo configurado! Bem-vindo ao Copilote 🚗");
     router.replace("/dashboard", { scroll: false });
   }, [searchParams, router]);
 

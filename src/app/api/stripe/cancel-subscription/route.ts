@@ -1,19 +1,21 @@
 import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
-import { db } from "@/db";
+import { getRequestDb } from "@/db/request-db";
+import { runWithAppUserId } from "@/db/run-with-app-user-id";
 import { subscriptions } from "@/db/schema";
-import { getSessionUserId } from "@/lib/api-session";
+import { requireSession } from "@/lib/api-session";
 import { getStripe } from "@/lib/stripe";
 
 export const runtime = "nodejs";
 
 export async function POST() {
-  const auth = await getSessionUserId();
+  const auth = await requireSession();
   if ("response" in auth) return auth.response;
 
   try {
+    return await runWithAppUserId(auth.userId, async () => {
     const stripe = getStripe();
-    const [row] = await db
+    const [row] = await getRequestDb()
       .select()
       .from(subscriptions)
       .where(eq(subscriptions.userId, auth.userId))
@@ -36,12 +38,13 @@ export async function POST() {
       cancel_at_period_end: true,
     });
 
-    await db
+    await getRequestDb()
       .update(subscriptions)
       .set({ cancelAtPeriodEnd: true })
       .where(eq(subscriptions.userId, auth.userId));
 
     return NextResponse.json({ data: { ok: true }, error: null });
+    });
   } catch (e) {
     const raw =
       e instanceof Error ? e.message : "Erro ao cancelar assinatura.";

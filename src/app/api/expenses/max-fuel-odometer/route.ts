@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getSessionUserId } from "@/lib/api-session";
+import { runWithAppUserId } from "@/db/run-with-app-user-id";
+import { requireSession } from "@/lib/api-session";
 import { getMaxFuelOdometerExcluding } from "@/lib/max-fuel-odometer";
 
 const querySchema = z.object({
@@ -8,7 +9,7 @@ const querySchema = z.object({
 });
 
 export async function GET(request: Request) {
-  const auth = await getSessionUserId();
+  const auth = await requireSession();
   if ("response" in auth) return auth.response;
   const { userId } = auth;
 
@@ -26,6 +27,7 @@ export async function GET(request: Request) {
     );
   }
 
+  return runWithAppUserId(userId, async () => {
   const maxOdometer = await getMaxFuelOdometerExcluding(
     userId,
     parsed.data.excludeId ?? null,
@@ -34,5 +36,6 @@ export async function GET(request: Request) {
   return NextResponse.json({
     data: { maxOdometer },
     error: null,
+  });
   });
 }

@@ -1,6 +1,7 @@
 import {
   boolean,
   decimal,
+  index,
   integer,
   pgEnum,
   pgTable,
@@ -41,6 +42,20 @@ export const users = pgTable("users", {
     .defaultNow()
     .notNull()
     .$onUpdate(() => new Date()),
+  /** Registo LGPD: aceitação de privacidade/termos (definido no servidor após cadastro). */
+  lgpdConsentAcceptedAt: timestamp("lgpd_consent_accepted_at", {
+    withTimezone: true,
+    mode: "date",
+  }),
+  /**
+   * Papel da conta (`user` | `super_admin`). Plugin admin do Better Auth.
+   * Apenas `super_admin` acede ao painel em `ADMIN_APP_BASE_PATH`.
+   */
+  role: varchar("role", { length: 32 }).notNull().default("user"),
+  /** Conta inactiva: login e novas sessões bloqueados (plugin admin). */
+  banned: boolean("banned").notNull().default(false),
+  banReason: text("ban_reason"),
+  banExpires: timestamp("ban_expires", { withTimezone: true, mode: "date" }),
 });
 
 export const sessions = pgTable("sessions", {
@@ -62,6 +77,8 @@ export const sessions = pgTable("sessions", {
     .$onUpdate(() => new Date()),
   ipAddress: varchar("ip_address", { length: 45 }),
   userAgent: text("user_agent"),
+  /** Sessão de personificação: id do super_admin que iniciou (Better Auth admin plugin). */
+  impersonatedBy: text("impersonated_by"),
 });
 
 export const accounts = pgTable(
@@ -138,6 +155,13 @@ export const vehicles = pgTable("vehicles", {
     .notNull()
     .default("0.10"),
   currentOdometer: integer("current_odometer").notNull().default(0),
+  /**
+   * `combustion` — consumo km/l e preço R$/l.
+   * `electric` — consumo km/kWh e preço R$/kWh (mesma fórmula de custo por km).
+   */
+  powertrain: varchar("powertrain", { length: 20 })
+    .notNull()
+    .default("combustion"),
 });
 
 export const platformsUsed = pgTable(
@@ -223,6 +247,45 @@ export const maintenanceItems = pgTable("maintenance_items", {
   intervalKm: integer("interval_km").notNull(),
   estimatedCost: decimal("estimated_cost", { precision: 7, scale: 2 }),
 });
+
+/** Inscrições Web Push (navegador) — uma linha por endpoint (dispositivo). */
+export const webPushSubscriptions = pgTable(
+  "web_push_subscriptions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    endpoint: text("endpoint").notNull(),
+    p256dh: text("p256dh").notNull(),
+    auth: text("auth").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true, mode: "date" })
+      .defaultNow()
+      .notNull()
+      .$onUpdate(() => new Date()),
+  },
+  (t) => [uniqueIndex("web_push_subscriptions_endpoint_uq").on(t.endpoint)],
+);
+
+/** Último envio de lembrete de manutenção por push (evita spam — ver janela no cron). */
+export const maintenancePushLog = pgTable(
+  "maintenance_push_log",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
+      .defaultNow()
+      .notNull(),
+  },
+  (t) => [
+    index("maintenance_push_log_user_created_idx").on(t.userId, t.createdAt),
+  ],
+);
 
 export const reportDownloads = pgTable("report_downloads", {
   id: uuid("id").primaryKey().defaultRandom(),

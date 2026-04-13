@@ -1,9 +1,9 @@
 import { asc, eq } from "drizzle-orm";
-import { db } from "@/db";
+import { getRequestDb } from "@/db/request-db";
 import { maintenanceItems, users } from "@/db/schema";
 import {
   calculateEfficiencyScore,
-  calculateRideCost,
+  calculateRideCostForPnlAggregate,
   calculateRideProfit,
   groupRidesByPlatform,
   type Platform,
@@ -21,6 +21,11 @@ import {
   type RideRow,
 } from "@/lib/dashboard-data";
 import { computeMaintenanceDerived } from "@/lib/maintenance-computed";
+import {
+  normalizePowertrain,
+  vehicleFromVehicleRow,
+  type VehiclePowertrain,
+} from "@/lib/vehicle-powertrain";
 
 const WEEK_PT = [
   "Domingo",
@@ -65,7 +70,10 @@ export type RelatorioWeekdayRow = {
 };
 
 export type RelatorioFuelBlock = {
+  powertrain: VehiclePowertrain;
+  /** Média cadastrada no veículo: km/l ou km/kWh conforme `powertrain`. */
   avgConsumptionKmL: number | null;
+  /** Soma do volume em gastos `fuel` (litros ou kWh no mesmo campo). */
   totalLiters: number;
   totalFuelCost: number;
 };
@@ -88,6 +96,11 @@ export type RelatorioMonthReport = {
   monthLabel: string;
   month: number;
   year: number;
+  /**
+   * Dias corridos UTC (início–fim inclusivos) quando o relatório é um intervalo
+   * arbitrário; usado p.ex. na meta diária proporcional. Ausente no modo mês cheio.
+   */
+  periodMetaDays?: number;
   generatedAtLabel: string;
   driverName: string;
   driverCity: string | null;
@@ -148,17 +161,14 @@ function vehicleFromRow(
   row: Awaited<ReturnType<typeof getVehicleForUser>>,
 ): Vehicle | null {
   if (!row) return null;
-  return {
-    fuelConsumption: Number(row.fuelConsumption),
-    fuelPrice: Number(row.fuelPrice),
-    depreciationPerKm: Number(row.depreciationPerKm),
-  };
+  return vehicleFromVehicleRow(row);
 }
 
 const FAKE_VEHICLE: Vehicle = {
   fuelConsumption: 1,
   fuelPrice: 0,
   depreciationPerKm: 0,
+  powertrain: "combustion",
 };
 
 function weekdayStats(
@@ -170,7 +180,7 @@ function weekdayStats(
   for (const row of rows) {
     const gross = Number(row.grossAmount);
     const km = Number(row.distanceKm);
-    const cost = calculateRideCost(km, vehicle);
+    const cost = calculateRideCostForPnlAggregate(km, vehicle);
     if (Number.isNaN(cost)) continue;
     const profit = calculateRideProfit(gross, cost);
     const wd = row.startedAt.getUTCDay();
@@ -210,13 +220,63 @@ function maintenanceStatusLabel(s: "ok" | "warning" | "overdue"): string {
   }
 }
 
-export async function getRelatorioMonthPreview(
+export type RelatorioBuildSource =
+  | { kind: "month"; year: number; month1to12: number }
+  | { kind: "range"; inclusiveDays: number };
+
+function sameUtcMonth(a: Date, b: Date): boolean {
+  return (
+    a.getUTCFullYear() === b.getUTCFullYear() &&
+    a.getUTCMonth() === b.getUTCMonth()
+  );
+}
+
+export function inclusiveUtcCalendarDayCount(start: Date, end: Date): number {
+  const t0 = Date.UTC(
+    start.getUTCFullYear(),
+    start.getUTCMonth(),
+    start.getUTCDate(),
+  );
+  const t1 = Date.UTC(
+    end.getUTCFullYear(),
+    end.getUTCMonth(),
+    end.getUTCDate(),
+  );
+  if (t1 < t0) return 0;
+  return Math.round((t1 - t0) / 86400000) + 1;
+}
+
+function formatRangeLabelPt(start: Date, end: Date): string {
+  const fmt: Intl.DateTimeFormatOptions = {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    timeZone: "UTC",
+  };
+  const raw = `${start.toLocaleDateString("pt-BR", fmt)} – ${end.toLocaleDateString("pt-BR", fmt)}`;
+  return raw.charAt(0).toUpperCase() + raw.slice(1);
+}
+
+/** Monta relatório para um intervalo UTC fechado (início 00:00, fim 23:59:59). */
+export async function buildRelatorioReport(
   userId: string,
-  year: number,
-  month1to12: number,
+  start: Date,
+  end: Date,
+  source: RelatorioBuildSource,
 ): Promise<RelatorioMonthReport> {
-  const start = new Date(Date.UTC(year, month1to12 - 1, 1, 0, 0, 0, 0));
-  const end = new Date(Date.UTC(year, month1to12, 0, 23, 59, 59, 999));
+  const goalYearMonth =
+    source.kind === "month"
+      ? { year: source.year, month: source.month1to12 }
+      : sameUtcMonth(start, end)
+        ? {
+            year: start.getUTCFullYear(),
+            month: start.getUTCMonth() + 1,
+          }
+        : null;
+
+  const goalPromise = goalYearMonth
+    ? fetchGoalForUtcMonth(userId, goalYearMonth.year, goalYearMonth.month)
+    : Promise.resolve(null);
 
   const [
     rideRows,
@@ -229,13 +289,13 @@ export async function getRelatorioMonthPreview(
     fetchRidesInRange(userId, { start, end }),
     fetchExpensesInRange(userId, { start, end }),
     getVehicleForUser(userId),
-    fetchGoalForUtcMonth(userId, year, month1to12),
-    db
+    goalPromise,
+    getRequestDb()
       .select()
       .from(maintenanceItems)
       .where(eq(maintenanceItems.userId, userId))
       .orderBy(asc(maintenanceItems.type)),
-    db
+    getRequestDb()
       .select({ name: users.name, city: users.city })
       .from(users)
       .where(eq(users.id, userId))
@@ -341,6 +401,9 @@ export async function getRelatorioMonthPreview(
   }, 0);
 
   const fuel: RelatorioFuelBlock = {
+    powertrain: vehicleRow
+      ? normalizePowertrain(vehicleRow.powertrain)
+      : "combustion",
     avgConsumptionKmL:
       vehicle && vehicleRow ? Number(vehicleRow.fuelConsumption) : null,
     totalLiters,
@@ -413,7 +476,7 @@ export async function getRelatorioMonthPreview(
   for (const row of rideRows) {
     const gross = Number(row.grossAmount);
     const km = Number(row.distanceKm);
-    const cost = calculateRideCost(km, calcVehicle);
+    const cost = calculateRideCostForPnlAggregate(km, calcVehicle);
     if (Number.isNaN(cost)) continue;
     ticketSum += calculateRideProfit(gross, cost);
     ticketCount += 1;
@@ -421,11 +484,31 @@ export async function getRelatorioMonthPreview(
   const ticketMedioLiquido =
     ticketCount > 0 ? ticketSum / ticketCount : null;
 
-  const monthLabelRaw = new Date(
-    Date.UTC(year, month1to12 - 1, 15),
-  ).toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
-  const monthLabel =
-    monthLabelRaw.charAt(0).toUpperCase() + monthLabelRaw.slice(1);
+  let monthLabel: string;
+  let reportId: string;
+  let displayYear: number;
+  let displayMonth: number;
+  let periodMetaDays: number | undefined;
+
+  if (source.kind === "month") {
+    const monthLabelRaw = new Date(
+      Date.UTC(source.year, source.month1to12 - 1, 15),
+    ).toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+    monthLabel =
+      monthLabelRaw.charAt(0).toUpperCase() + monthLabelRaw.slice(1);
+    reportId = `RPT-${source.year}-${String(source.month1to12).padStart(2, "0")}-${userId.slice(0, 8)}`;
+    displayYear = source.year;
+    displayMonth = source.month1to12;
+    periodMetaDays = undefined;
+  } else {
+    monthLabel = formatRangeLabelPt(start, end);
+    const fs = `${start.getUTCFullYear()}${String(start.getUTCMonth() + 1).padStart(2, "0")}${String(start.getUTCDate()).padStart(2, "0")}`;
+    const fe = `${end.getUTCFullYear()}${String(end.getUTCMonth() + 1).padStart(2, "0")}${String(end.getUTCDate()).padStart(2, "0")}`;
+    reportId = `RPT-${fs}-${fe}-${userId.slice(0, 8)}`;
+    displayYear = start.getUTCFullYear();
+    displayMonth = start.getUTCMonth() + 1;
+    periodMetaDays = source.inclusiveDays;
+  }
 
   const generatedAt = new Date();
   const generatedAtLabel = generatedAt.toLocaleString("pt-BR", {
@@ -433,13 +516,12 @@ export async function getRelatorioMonthPreview(
     timeStyle: "short",
   });
 
-  const reportId = `RPT-${year}-${String(month1to12).padStart(2, "0")}-${userId.slice(0, 8)}`;
-
   return {
     reportId,
     monthLabel,
-    month: month1to12,
-    year,
+    month: displayMonth,
+    year: displayYear,
+    ...(periodMetaDays != null ? { periodMetaDays } : {}),
     generatedAtLabel,
     driverName,
     driverCity,
@@ -474,6 +556,32 @@ export async function getRelatorioMonthPreview(
     worstWeekdayLabel,
     ticketMedioLiquido,
   };
+}
+
+export async function getRelatorioMonthPreview(
+  userId: string,
+  year: number,
+  month1to12: number,
+): Promise<RelatorioMonthReport> {
+  const start = new Date(Date.UTC(year, month1to12 - 1, 1, 0, 0, 0, 0));
+  const end = new Date(Date.UTC(year, month1to12, 0, 23, 59, 59, 999));
+  return buildRelatorioReport(userId, start, end, {
+    kind: "month",
+    year,
+    month1to12,
+  });
+}
+
+export async function getRelatorioDateRangePreview(
+  userId: string,
+  rangeStart: Date,
+  rangeEnd: Date,
+): Promise<RelatorioMonthReport> {
+  const inclusiveDays = inclusiveUtcCalendarDayCount(rangeStart, rangeEnd);
+  return buildRelatorioReport(userId, rangeStart, rangeEnd, {
+    kind: "range",
+    inclusiveDays,
+  });
 }
 
 function uniqueRideUtcDays(rows: RideRow[]): number {

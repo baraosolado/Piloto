@@ -12,14 +12,20 @@ import {
   type SQL,
 } from "drizzle-orm";
 import { z } from "zod";
-import { db } from "@/db";
+import { getRequestDb } from "@/db/request-db";
+import { runWithAppUserId } from "@/db/run-with-app-user-id";
 import { rides, vehicles } from "@/db/schema";
-import { getSessionUserId } from "@/lib/api-session";
+import { requireSession } from "@/lib/api-session";
 import {
   calculateRideCost,
   calculateRideProfit,
   type Vehicle,
 } from "@/lib/calculations";
+import {
+  consumptionBounds,
+  normalizePowertrain,
+  vehicleFromVehicleRow,
+} from "@/lib/vehicle-powertrain";
 import {
   countRidesThisMonth,
   getEffectivePlan,
@@ -63,15 +69,9 @@ const postBodySchema = z.object({
   ),
   durationMinutes: z.number().int().positive().nullable().optional(),
   notes: z.string().max(5000).nullable().optional(),
+  /** Atualiza o consumo médio (km/l ou km/kWh se elétrico) do veículo junto com o registro. */
+  fuelConsumption: z.number().min(2).max(30),
 });
-
-function vehicleRowToCalc(v: typeof vehicles.$inferSelect): Vehicle {
-  return {
-    fuelConsumption: Number(v.fuelConsumption),
-    fuelPrice: Number(v.fuelPrice),
-    depreciationPerKm: Number(v.depreciationPerKm),
-  };
-}
 
 function serializeRide(row: typeof rides.$inferSelect) {
   return {
@@ -87,7 +87,7 @@ function serializeRide(row: typeof rides.$inferSelect) {
 }
 
 export async function GET(request: Request) {
-  const auth = await getSessionUserId();
+  const auth = await requireSession();
   if ("response" in auth) return auth.response;
   const { userId } = auth;
 
@@ -109,6 +109,8 @@ export async function GET(request: Request) {
   }
 
   const { startDate, endDate, platform, sort, page, limit } = parsed.data;
+
+  return runWithAppUserId(userId, async () => {
   const conditions: SQL[] = [eq(rides.userId, userId)];
 
   if (startDate && endDate) {
@@ -124,7 +126,7 @@ export async function GET(request: Request) {
 
   const whereClause = and(...conditions);
 
-  const [countRow] = await db
+  const [countRow] = await getRequestDb()
     .select({ n: count() })
     .from(rides)
     .where(whereClause);
@@ -141,7 +143,7 @@ export async function GET(request: Request) {
           ? asc(rides.grossAmount)
           : desc(rides.startedAt);
 
-  const [vehicleRow] = await db
+  const [vehicleRow] = await getRequestDb()
     .select()
     .from(vehicles)
     .where(eq(vehicles.userId, userId))
@@ -154,16 +156,19 @@ export async function GET(request: Request) {
   };
 
   if (vehicleRow) {
-    const [agg] = await db
+    const [agg] = await getRequestDb()
       .select({
         totalRides: count(),
         totalGross: sql<string>`coalesce(sum(${rides.grossAmount}::numeric), 0)::text`,
         totalNetProfit: sql<string>`coalesce(sum(
-          ${rides.grossAmount}::numeric - (
-            (${rides.distanceKm}::numeric / nullif(${vehicles.fuelConsumption}::numeric, 0))
-            * ${vehicles.fuelPrice}::numeric
-            + ${rides.distanceKm}::numeric * ${vehicles.depreciationPerKm}::numeric
-          )
+          CASE
+            WHEN ${rides.distanceKm}::numeric > 0 THEN
+              ${rides.grossAmount}::numeric - (
+                ${rides.distanceKm}::numeric
+                * coalesce(${vehicles.depreciationPerKm}::numeric, 0)
+              )
+            ELSE 0
+          END
         ), 0)::text`,
       })
       .from(rides)
@@ -176,7 +181,7 @@ export async function GET(request: Request) {
       totalNetProfit: Number.parseFloat(agg?.totalNetProfit ?? "0"),
     };
   } else {
-    const [agg] = await db
+    const [agg] = await getRequestDb()
       .select({
         totalRides: count(),
         totalGross: sql<string>`coalesce(sum(${rides.grossAmount}::numeric), 0)::text`,
@@ -191,7 +196,7 @@ export async function GET(request: Request) {
     };
   }
 
-  const rows = await db
+  const rows = await getRequestDb()
     .select()
     .from(rides)
     .where(whereClause)
@@ -209,10 +214,11 @@ export async function GET(request: Request) {
     },
     error: null,
   });
+  });
 }
 
 export async function POST(request: Request) {
-  const auth = await getSessionUserId();
+  const auth = await requireSession();
   if ("response" in auth) return auth.response;
   const { userId, email } = auth;
 
@@ -244,6 +250,7 @@ export async function POST(request: Request) {
     );
   }
 
+  return runWithAppUserId(userId, async () => {
   const plan = await getEffectivePlan(userId, email);
   if (plan === "free") {
     const n = await countRidesThisMonth(userId);
@@ -254,7 +261,7 @@ export async function POST(request: Request) {
           error: {
             code: "LIMIT_REACHED",
             message:
-              "Limite de 50 corridas no plano gratuito foi atingido neste mês.",
+              "Limite de 50 registros no plano gratuito foi atingido neste mês.",
           },
         },
         { status: 403 },
@@ -262,7 +269,7 @@ export async function POST(request: Request) {
     }
   }
 
-  const [vehicleRow] = await db
+  const [vehicleRow] = await getRequestDb()
     .select()
     .from(vehicles)
     .where(eq(vehicles.userId, userId))
@@ -281,10 +288,35 @@ export async function POST(request: Request) {
     );
   }
 
-  const v = vehicleRowToCalc(vehicleRow);
   const d = body.data;
+  const pt = normalizePowertrain(vehicleRow.powertrain);
+  const cBounds = consumptionBounds(pt);
+  if (d.fuelConsumption < cBounds.min || d.fuelConsumption > cBounds.max) {
+    return NextResponse.json(
+      {
+        data: null,
+        error: {
+          code: "VALIDATION_ERROR",
+          message:
+            pt === "electric"
+              ? `Consumo do dia: entre ${cBounds.min} e ${cBounds.max} km/kWh.`
+              : `Consumo do dia: entre ${cBounds.min} e ${cBounds.max} km/l.`,
+        },
+      },
+      { status: 400 },
+    );
+  }
 
-  const [inserted] = await db
+  const fcStr = d.fuelConsumption.toFixed(2);
+
+  await getRequestDb()
+    .update(vehicles)
+    .set({ fuelConsumption: fcStr })
+    .where(
+      and(eq(vehicles.id, vehicleRow.id), eq(vehicles.userId, userId)),
+    );
+
+  const [inserted] = await getRequestDb()
     .insert(rides)
     .values({
       userId,
@@ -297,6 +329,10 @@ export async function POST(request: Request) {
     })
     .returning();
 
+  const v: Vehicle = {
+    ...vehicleFromVehicleRow(vehicleRow),
+    fuelConsumption: d.fuelConsumption,
+  };
   const cost = calculateRideCost(d.distanceKm, v);
   const profit = Number.isNaN(cost)
     ? Number.NaN
@@ -309,5 +345,6 @@ export async function POST(request: Request) {
       profit: Number.isNaN(profit) ? null : profit,
     },
     error: null,
+  });
   });
 }

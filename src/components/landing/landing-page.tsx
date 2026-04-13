@@ -231,7 +231,7 @@ export function PublicLanding() {
             <div className="grid grid-cols-1 gap-8 text-left md:grid-cols-3">
               <div className="rounded-2xl border border-white/25 bg-zinc-900 p-8">
                 <p className="mb-6 text-lg text-zinc-300 italic">
-                  &ldquo;O Piloto me mostrou que eu estava pagando para trabalhar
+                  &ldquo;O Copilote me mostrou que eu estava pagando para trabalhar
                   em certos horários. Mudei minha rotina e meu lucro subiu
                   30%.&rdquo;
                 </p>

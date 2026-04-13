@@ -1,11 +1,13 @@
 /**
- * Cria (ou recria) duas contas locais para desenvolvimento:
- * - Desenvolvedor: emersonlincoln4@gmail.com
- * - Usuário (motorista): motorista@piloto.local
+ * Cria (ou recria) contas locais para desenvolvimento:
+ * - Desenvolvedor / mestre: emersonlincoln4@gmail.com
+ * - Mestre (piloto.local): dev@piloto.local
+ * - Usuário (motorista): motorista@copilote.local
  *
  * Uso: npm run db:seed:dev-users
  *
- * Remove usuários existentes com esses e-mails (CASCADE apaga sessões/contas ligadas).
+ * Remove utilizadores de dev por **e-mail** ou pelos **UUID fixos** (evita 23505 se o
+ * e-mail no BD for antigo, ex. motorista@piloto.local com o mesmo id da migration 0002).
  */
 
 import { config } from "dotenv";
@@ -25,18 +27,34 @@ const DEV_USERS = [
   {
     id: "11111111-1111-4111-8111-111111111101",
     email: "emersonlincoln4@gmail.com",
-    name: "Dev Piloto",
-    password: "PilotoDev2026!",
+    name: "Dev Copilote",
+    password: "CopiloteDev2026!",
     role: "desenvolvedor",
   },
   {
+    id: "33333333-3333-4333-8333-333333333303",
+    email: "dev@piloto.local",
+    name: "Dev Piloto (mestre)",
+    password: "CopiloteDev2026!",
+    role: "super_admin (dev@piloto.local)",
+  },
+  {
     id: "22222222-2222-4222-8222-222222222202",
-    email: "motorista@piloto.local",
+    email: "motorista@copilote.local",
     name: "João Motorista",
-    password: "PilotoUser2026!",
+    password: "CopiloteUser2026!",
     role: "usuário (motorista)",
   },
 ];
+
+/** Papel Better Auth na tabela `users.role`. */
+function authRoleForEmail(email) {
+  const e = email.toLowerCase();
+  if (e === "emersonlincoln4@gmail.com" || e === "dev@piloto.local") {
+    return "super_admin";
+  }
+  return "user";
+}
 
 const url = process.env.DATABASE_URL;
 if (!url) {
@@ -47,11 +65,15 @@ if (!url) {
 const pool = new Pool({ connectionString: url });
 
 try {
-  const emails = DEV_USERS.map((u) => u.email);
+  const emails = DEV_USERS.map((u) => u.email.toLowerCase());
+  const ids = DEV_USERS.map((u) => u.id);
 
   const del = await pool.query(
-    `DELETE FROM users WHERE email = ANY($1::text[]) RETURNING email`,
-    [emails],
+    `DELETE FROM users
+     WHERE id = ANY($1::uuid[])
+        OR lower(email) = ANY($2::text[])
+     RETURNING email`,
+    [ids, emails],
   );
   if (del.rowCount > 0) {
     console.log(
@@ -68,9 +90,9 @@ try {
     const passwordHash = await hashPassword(u.password);
 
     await pool.query(
-      `INSERT INTO users (id, name, email, password_hash, email_verified, created_at, updated_at)
-       VALUES ($1, $2, $3, NULL, true, now(), now())`,
-      [id, u.name, emailLower],
+      `INSERT INTO users (id, name, email, password_hash, email_verified, role, banned, created_at, updated_at)
+       VALUES ($1, $2, $3, NULL, true, $4, false, now(), now())`,
+      [id, u.name, emailLower, authRoleForEmail(u.email)],
     );
 
     await pool.query(

@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
-import { db } from "@/db";
+import { getRequestDb } from "@/db/request-db";
+import { runWithAppUserId } from "@/db/run-with-app-user-id";
 import { goals } from "@/db/schema";
-import { getSessionUserId } from "@/lib/api-session";
+import { requireSession } from "@/lib/api-session";
 
 const postBodySchema = z.object({
   monthlyTarget: z
@@ -25,11 +26,12 @@ function serializeGoal(row: typeof goals.$inferSelect) {
 }
 
 export async function GET() {
-  const auth = await getSessionUserId();
+  const auth = await requireSession();
   if ("response" in auth) return auth.response;
   const { userId } = auth;
 
-  const rows = await db
+  return runWithAppUserId(userId, async () => {
+  const rows = await getRequestDb()
     .select()
     .from(goals)
     .where(eq(goals.userId, userId));
@@ -38,10 +40,11 @@ export async function GET() {
     data: { goals: rows.map(serializeGoal) },
     error: null,
   });
+  });
 }
 
 export async function POST(request: Request) {
-  const auth = await getSessionUserId();
+  const auth = await requireSession();
   if ("response" in auth) return auth.response;
 
   let json: unknown;
@@ -78,7 +81,8 @@ export async function POST(request: Request) {
   const monthlyTargetStr = parsed.data.monthlyTarget.toFixed(2);
   const userId = auth.userId;
 
-  const [existing] = await db
+  return runWithAppUserId(userId, async () => {
+  const [existing] = await getRequestDb()
     .select()
     .from(goals)
     .where(
@@ -92,7 +96,7 @@ export async function POST(request: Request) {
 
   let row: typeof goals.$inferSelect;
   if (existing) {
-    [row] = await db
+    [row] = await getRequestDb()
       .update(goals)
       .set({ monthlyTarget: monthlyTargetStr })
       .where(
@@ -100,7 +104,7 @@ export async function POST(request: Request) {
       )
       .returning();
   } else {
-    [row] = await db
+    [row] = await getRequestDb()
       .insert(goals)
       .values({
         userId,
@@ -114,5 +118,6 @@ export async function POST(request: Request) {
   return NextResponse.json({
     data: { goal: serializeGoal(row) },
     error: null,
+  });
   });
 }

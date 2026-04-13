@@ -8,6 +8,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { MaintenanceAddDrawer } from "@/components/manutencao/maintenance-add-drawer";
 import { MaintenanceServiceDialog } from "@/components/manutencao/maintenance-service-dialog";
+import { useMaintenanceAlertsRefetch } from "@/components/layout/maintenance-alerts-context";
+import { MaintenancePushPanel } from "@/components/push/maintenance-push-panel";
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -69,6 +71,7 @@ function kmMessage(item: MaintenanceItemDto): string {
 }
 
 export function ManutencaoView() {
+  const refetchNavAlerts = useMaintenanceAlertsRefetch();
   const [data, setData] = useState<ApiPayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -100,7 +103,8 @@ export function ManutencaoView() {
     } finally {
       setLoading(false);
     }
-  }, []);
+    void refetchNavAlerts();
+  }, [refetchNavAlerts]);
 
   useEffect(() => {
     void fetchData();
@@ -169,17 +173,39 @@ export function ManutencaoView() {
       </header>
 
       {data?.currentOdometer === null ? (
-        <p className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
-          Defina o <strong>odômetro atual</strong> do veículo em{" "}
-          <Link
-            href="/configuracoes/veiculo"
-            className="font-bold underline"
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-950">
+          <p>
+            Defina o <strong>odômetro atual</strong> do veículo para calcular
+            alertas (“Faltam X km”) e para que os{" "}
+            <strong>avisos no navegador</strong> saibam quando notificar.
+          </p>
+          <Button
+            asChild
+            className="mt-4 h-10 bg-black font-bold text-white hover:bg-black/90"
           >
-            Configurações → Veículo
-          </Link>{" "}
-          para calcular alertas e “Faltam X km”.
-        </p>
-      ) : null}
+            <Link href="/configuracoes/veiculo">Ir para odômetro do veículo</Link>
+          </Button>
+        </div>
+      ) : (
+        <div className="rounded-lg border border-border bg-muted/40 px-4 py-4 text-sm text-muted-foreground">
+          <p>
+            <span className="font-medium text-foreground">
+              Notificações no navegador
+            </span>{" "}
+            usam o odômetro cadastrado em Veículo. Atualize após revisões ou
+            viagens longas para os lembretes continuarem corretos.
+          </p>
+          <Button
+            asChild
+            variant="outline"
+            className="mt-3 h-9 border-black/20 font-bold"
+          >
+            <Link href="/configuracoes/veiculo">Atualizar odômetro</Link>
+          </Button>
+        </div>
+      )}
+
+      <MaintenancePushPanel />
 
       {error ? (
         <p className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">

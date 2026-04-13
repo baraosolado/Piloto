@@ -17,7 +17,7 @@ export function DashboardRegisterRide({
         className="gap-2 bg-black px-5 py-3 font-bold text-white hover:bg-black/90"
       >
         <Plus className="size-4" strokeWidth={2.5} />
-        <span className="text-sm">Registrar corrida</span>
+        <span className="text-sm">Registrar dia</span>
       </Button>
     </RideFormDrawer>
   );

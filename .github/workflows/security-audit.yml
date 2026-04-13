@@ -1,0 +1,22 @@
+name: Security audit
+
+# Agendado + manual: `npm audit --audit-level=high` falha hoje (Next, better-auth, drizzle).
+# Corrigir dependências e, se quiser, acrescente `push`/`pull_request` de novo.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 12 * * 1"
+
+jobs:
+  npm-audit:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+      - run: npm ci
+      - name: npm audit (high+) — relatório; não bloqueia até bumps
+        run: npm audit --audit-level=high

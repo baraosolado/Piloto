@@ -34,59 +34,79 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useMediaQuery } from "@/hooks/use-media-query";
+import { fuelExpenseUi, type VehiclePowertrain } from "@/lib/vehicle-powertrain";
 import { cn } from "@/lib/utils";
 
-const CATEGORIES = [
-  {
-    id: "fuel" as const,
-    label: "Combustível",
-    short: "Comb.",
-    icon: Fuel,
-    onClass:
-      "border-orange-500 bg-orange-50 text-orange-950 shadow-sm ring-1 ring-orange-500/20",
-    offClass: "border-transparent bg-[#f3f3f3] hover:bg-[#eeeeee]",
-  },
-  {
-    id: "maintenance" as const,
-    label: "Manutenção",
-    short: "Manut.",
-    icon: Wrench,
-    onClass:
-      "border-blue-500 bg-blue-50 text-blue-950 shadow-sm ring-1 ring-blue-500/20",
-    offClass: "border-transparent bg-[#f3f3f3] hover:bg-[#eeeeee]",
-  },
-  {
-    id: "insurance" as const,
-    label: "Seguro",
-    short: "Seguro",
-    icon: Shield,
-    onClass:
-      "border-violet-500 bg-violet-50 text-violet-950 shadow-sm ring-1 ring-violet-500/20",
-    offClass: "border-transparent bg-[#f3f3f3] hover:bg-[#eeeeee]",
-  },
-  {
-    id: "fine" as const,
-    label: "Multa",
-    short: "Multa",
-    icon: AlertTriangle,
-    onClass:
-      "border-red-500 bg-red-50 text-red-950 shadow-sm ring-1 ring-red-500/20",
-    offClass: "border-transparent bg-[#f3f3f3] hover:bg-[#eeeeee]",
-  },
-  {
-    id: "other" as const,
-    label: "Outros",
-    short: "Outros",
-    icon: MoreHorizontal,
-    onClass:
-      "border-neutral-400 bg-neutral-100 text-neutral-900 shadow-sm ring-1 ring-neutral-400/30",
-    offClass: "border-transparent bg-[#f3f3f3] hover:bg-[#eeeeee]",
-  },
-];
+export type ExpenseCategoryId =
+  | "fuel"
+  | "maintenance"
+  | "insurance"
+  | "fine"
+  | "other";
+
+type CategoryDef = {
+  id: ExpenseCategoryId;
+  label: string;
+  short: string;
+  icon: typeof Fuel;
+  onClass: string;
+  offClass: string;
+};
+
+function expenseCategoriesFor(pt: VehiclePowertrain): CategoryDef[] {
+  const ui = fuelExpenseUi(pt);
+  return [
+    {
+      id: "fuel",
+      label: ui.categoryLabel,
+      short: ui.categoryShort,
+      icon: Fuel,
+      onClass:
+        "border-orange-500 bg-orange-50 text-orange-950 shadow-sm ring-1 ring-orange-500/20",
+      offClass: "border-transparent bg-[#f3f3f3] hover:bg-[#eeeeee]",
+    },
+    {
+      id: "maintenance",
+      label: "Manutenção",
+      short: "Manut.",
+      icon: Wrench,
+      onClass:
+        "border-blue-500 bg-blue-50 text-blue-950 shadow-sm ring-1 ring-blue-500/20",
+      offClass: "border-transparent bg-[#f3f3f3] hover:bg-[#eeeeee]",
+    },
+    {
+      id: "insurance",
+      label: "Seguro",
+      short: "Seguro",
+      icon: Shield,
+      onClass:
+        "border-violet-500 bg-violet-50 text-violet-950 shadow-sm ring-1 ring-violet-500/20",
+      offClass: "border-transparent bg-[#f3f3f3] hover:bg-[#eeeeee]",
+    },
+    {
+      id: "fine",
+      label: "Multa",
+      short: "Multa",
+      icon: AlertTriangle,
+      onClass:
+        "border-red-500 bg-red-50 text-red-950 shadow-sm ring-1 ring-red-500/20",
+      offClass: "border-transparent bg-[#f3f3f3] hover:bg-[#eeeeee]",
+    },
+    {
+      id: "other",
+      label: "Outros",
+      short: "Outros",
+      icon: MoreHorizontal,
+      onClass:
+        "border-neutral-400 bg-neutral-100 text-neutral-900 shadow-sm ring-1 ring-neutral-400/30",
+      offClass: "border-transparent bg-[#f3f3f3] hover:bg-[#eeeeee]",
+    },
+  ];
+}
 
 export type ExpenseFormExpense = {
   id: string;
-  category: (typeof CATEGORIES)[number]["id"];
+  category: ExpenseCategoryId;
   amount: number;
   odometer: number | null;
   liters: number | null;
@@ -95,6 +115,7 @@ export type ExpenseFormExpense = {
 };
 
 export type ExpenseFormDrawerProps = {
+  vehiclePowertrain: VehiclePowertrain;
   expense?: ExpenseFormExpense | null;
   children?: React.ReactNode;
   open?: boolean;
@@ -126,7 +147,7 @@ function isoToDateOnly(iso: string): string {
 }
 
 type FormState = {
-  category: (typeof CATEGORIES)[number]["id"];
+  category: ExpenseCategoryId;
   amount: string;
   date: string;
   description: string;
@@ -163,6 +184,7 @@ function formFromExpense(e: ExpenseFormExpense): FormState {
 }
 
 type ExpenseFormBodyProps = {
+  vehiclePowertrain: VehiclePowertrain;
   expense?: ExpenseFormExpense | null;
   open: boolean;
   onClose: () => void;
@@ -171,6 +193,7 @@ type ExpenseFormBodyProps = {
 };
 
 function ExpenseFormBody({
+  vehiclePowertrain,
   expense,
   open,
   onClose,
@@ -178,6 +201,14 @@ function ExpenseFormBody({
   onSaved,
 }: ExpenseFormBodyProps) {
   const router = useRouter();
+  const fuelUi = useMemo(
+    () => fuelExpenseUi(vehiclePowertrain),
+    [vehiclePowertrain],
+  );
+  const categories = useMemo(
+    () => expenseCategoriesFor(vehiclePowertrain),
+    [vehiclePowertrain],
+  );
   const [form, setForm] = useState<FormState>(emptyForm);
   const [pending, setPending] = useState(false);
   const [prevMaxOdometer, setPrevMaxOdometer] = useState<number | null>(null);
@@ -270,7 +301,7 @@ function ExpenseFormBody({
         return;
       }
       if (!(liters > 0) || Number.isNaN(liters)) {
-        toast.error("Informe os litros abastecidos.");
+        toast.error(fuelUi.volumeRequiredToast);
         return;
       }
     }
@@ -331,7 +362,7 @@ function ExpenseFormBody({
         <div className="space-y-3">
           <Label className={labelClass}>Categoria</Label>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-            {CATEGORIES.map(({ id, label, short, icon: Icon, onClass, offClass }) => {
+            {categories.map(({ id, label, short, icon: Icon, onClass, offClass }) => {
               const on = form.category === id;
               return (
                 <button
@@ -395,7 +426,7 @@ function ExpenseFormBody({
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="expense-liters" className={labelClass}>
-                Litros
+                {fuelUi.volumeFieldLabel}
               </Label>
               <div className="relative">
                 <Input
@@ -409,7 +440,7 @@ function ExpenseFormBody({
                   className={cn(fieldClass, "pr-14")}
                 />
                 <span className="absolute top-1/2 right-4 -translate-y-1/2 font-bold text-[#474747]">
-                  L
+                  {fuelUi.volumeInputSuffix}
                 </span>
               </div>
             </div>
@@ -458,7 +489,7 @@ function ExpenseFormBody({
         {form.category === "fuel" ? (
           <div className="space-y-4 rounded-2xl bg-black p-6 text-white">
             <div className="flex items-center justify-between opacity-90">
-              <span className="text-sm font-medium">Custo por litro</span>
+              <span className="text-sm font-medium">{fuelUi.costPerVolumeTitle}</span>
               <span className="font-bold">
                 {preview.costPerLiter === null
                   ? "—"
@@ -469,7 +500,7 @@ function ExpenseFormBody({
             <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
               <div className="space-y-1">
                 <span className="text-xs font-bold tracking-widest text-[#5adf82] uppercase">
-                  Custo/km (este abastecimento)
+                  {fuelUi.costPerKmFillTitle}
                 </span>
                 <div className="text-2xl font-black text-[#5adf82]">
                   {preview.costPerKmFill === null
@@ -478,10 +509,10 @@ function ExpenseFormBody({
                 </div>
                 <p className="text-[10px] text-white/60">
                   {prevMaxOdometer === null
-                    ? "Sem abastecimento anterior com odômetro para comparar."
+                    ? fuelUi.noPreviousWithOdometer
                     : preview.kmDelta !== null && preview.kmDelta <= 0
                       ? `Odômetro deve ser maior que o último registro (${prevMaxOdometer.toLocaleString("pt-BR")} km).`
-                      : `Km desde o último abastecimento: ${preview.kmDelta?.toLocaleString("pt-BR") ?? "—"}`}
+                      : `${fuelUi.kmSinceLast}: ${preview.kmDelta?.toLocaleString("pt-BR") ?? "—"}`}
                 </p>
               </div>
             </div>
@@ -527,6 +558,7 @@ function ExpenseFormBody({
 }
 
 export function ExpenseFormDrawer({
+  vehiclePowertrain,
   expense,
   children,
   open: openProp,
@@ -549,6 +581,7 @@ export function ExpenseFormDrawer({
 
   const sharedForm = (
     <ExpenseFormBody
+      vehiclePowertrain={vehiclePowertrain}
       expense={expense ?? null}
       open={open}
       onClose={() => setOpen(false)}
@@ -569,8 +602,8 @@ export function ExpenseFormDrawer({
         </DialogHeader>
         <DialogFooter className="gap-2 sm:justify-stretch">
           <Button asChild className="bg-black">
-            <Link href="/planos" onClick={() => setUpgradeOpen(false)}>
-              Ver planos
+            <Link href="/configuracoes/plano" onClick={() => setUpgradeOpen(false)}>
+              Plano e pagamento
             </Link>
           </Button>
           <Button variant="outline" onClick={() => setUpgradeOpen(false)}>

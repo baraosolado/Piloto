@@ -61,6 +61,10 @@ if (process.env.NODE_ENV === "production") {
 }
 
 const nextConfig: NextConfig = {
+  /** Evita empacotar `cluster`/Node dentro de bundles que não o suportam (ex.: Edge). */
+  serverExternalPackages: ["rate-limiter-flexible"],
+  /** SECURITY.md §4.5 / §12.9 — não expor código-fonte no navegador em produção. */
+  productionBrowserSourceMaps: false,
   // Evita aviso "Webpack is configured while Turbopack is not" no `next dev --turbopack`:
   // o Sentry injeta webpack no build; declarar `turbo` vazio indica uso consciente do Turbopack em dev.
   experimental: {

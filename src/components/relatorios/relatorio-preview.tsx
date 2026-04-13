@@ -1,4 +1,8 @@
 import type { RelatorioMonthReport } from "@/lib/relatorio-month-preview";
+import {
+  consumptionUnitSuffix,
+  fuelVolumeUnitShort,
+} from "@/lib/vehicle-powertrain";
 
 const brl = new Intl.NumberFormat("pt-BR", {
   style: "currency",
@@ -26,6 +30,11 @@ function statusPillClass(status: "ok" | "warning" | "overdue") {
 }
 
 export function RelatorioPreview({ data }: { data: RelatorioMonthReport }) {
+  const fuelPt = data.fuel.powertrain;
+  const consUnit = consumptionUnitSuffix(fuelPt);
+  const volUnit = fuelVolumeUnitShort(fuelPt);
+  const isElectricVehicle = fuelPt === "electric";
+
   const kmFmt = data.totalKm.toLocaleString("pt-BR", {
     maximumFractionDigits: 1,
   });
@@ -41,7 +50,7 @@ export function RelatorioPreview({ data }: { data: RelatorioMonthReport }) {
           <header className="mb-8 flex flex-col justify-between gap-4 border-b-2 border-black pb-4 sm:flex-row sm:items-end">
             <div>
               <p className="text-[10px] font-medium uppercase tracking-widest text-neutral-500">
-                Piloto • Relatório mensal
+                Copilote • Relatório mensal
               </p>
               <h2 className="font-black text-2xl tracking-tighter text-black uppercase">
                 Performance
@@ -214,32 +223,32 @@ export function RelatorioPreview({ data }: { data: RelatorioMonthReport }) {
           <div className="mb-8 grid gap-8 md:grid-cols-2">
             <section>
               <h3 className="mb-4 text-xs font-bold uppercase tracking-widest text-black">
-                Combustível (mês)
+                {isElectricVehicle ? "Energia (mês)" : "Combustível (mês)"}
               </h3>
               <div className="flex flex-col gap-4 bg-[#f3f3f3] p-6">
                 <div className="flex items-baseline justify-between border-b border-[#c6c6c6]/30 pb-2">
                   <span className="text-[10px] font-medium uppercase text-neutral-500">
-                    Consumo cadastrado (km/l)
+                    Consumo cadastrado ({consUnit})
                   </span>
                   <span className="text-xl font-bold">
                     {data.fuel.avgConsumptionKmL != null
-                      ? `${data.fuel.avgConsumptionKmL.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} km/l`
+                      ? `${data.fuel.avgConsumptionKmL.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} ${consUnit}`
                       : "—"}
                   </span>
                 </div>
                 <div className="flex items-baseline justify-between border-b border-[#c6c6c6]/30 pb-2">
                   <span className="text-[10px] font-medium uppercase text-neutral-500">
-                    Total abastecido
+                    {isElectricVehicle ? "Total (kWh)" : "Total abastecido"}
                   </span>
                   <span className="text-xl font-bold">
                     {data.fuel.totalLiters > 0
-                      ? `${data.fuel.totalLiters.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} L`
+                      ? `${data.fuel.totalLiters.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} ${volUnit}`
                       : "—"}
                   </span>
                 </div>
                 <div className="flex items-baseline justify-between">
                   <span className="text-[10px] font-medium uppercase text-neutral-500">
-                    Custo combustível
+                    {isElectricVehicle ? "Custo de energia" : "Custo combustível"}
                   </span>
                   <span className="text-xl font-bold">
                     {brl.format(data.fuel.totalFuelCost)}
@@ -398,7 +407,7 @@ export function RelatorioPreview({ data }: { data: RelatorioMonthReport }) {
 
           <footer className="mt-8 flex flex-col justify-between gap-2 border-t border-[#c6c6c6] pt-4 text-[9px] uppercase tracking-widest text-neutral-400 sm:flex-row sm:items-center">
             <p>
-              Piloto · Gerado em {data.generatedAtLabel} · Confidencial
+              Copilote · Gerado em {data.generatedAtLabel} · Confidencial
             </p>
             <span className="inline-flex w-fit bg-black px-3 py-1 text-[10px] font-black text-white">
               1 / 1

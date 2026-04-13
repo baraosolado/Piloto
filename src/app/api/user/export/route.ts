@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import JSZip from "jszip";
-import { db } from "@/db";
+import { getRequestDb } from "@/db/request-db";
+import { runWithAppUserId } from "@/db/run-with-app-user-id";
 import {
   expenses,
   goals,
@@ -12,7 +13,7 @@ import {
   users,
   vehicles,
 } from "@/db/schema";
-import { getSessionUserId } from "@/lib/api-session";
+import { requireSession } from "@/lib/api-session";
 
 export const runtime = "nodejs";
 
@@ -25,11 +26,13 @@ function omitPasswordHash<T extends { passwordHash?: unknown }>(
 }
 
 export async function GET() {
-  const auth = await getSessionUserId();
+  const auth = await requireSession();
   if ("response" in auth) return auth.response;
 
   const userId = auth.userId;
 
+  return runWithAppUserId(userId, async () => {
+  const gdb = getRequestDb();
   const [
     userRows,
     vehicleRows,
@@ -40,14 +43,14 @@ export async function GET() {
     platformRows,
     subRows,
   ] = await Promise.all([
-    db.select().from(users).where(eq(users.id, userId)),
-    db.select().from(vehicles).where(eq(vehicles.userId, userId)),
-    db.select().from(rides).where(eq(rides.userId, userId)),
-    db.select().from(expenses).where(eq(expenses.userId, userId)),
-    db.select().from(goals).where(eq(goals.userId, userId)),
-    db.select().from(maintenanceItems).where(eq(maintenanceItems.userId, userId)),
-    db.select().from(platformsUsed).where(eq(platformsUsed.userId, userId)),
-    db.select().from(subscriptions).where(eq(subscriptions.userId, userId)),
+    gdb.select().from(users).where(eq(users.id, userId)),
+    gdb.select().from(vehicles).where(eq(vehicles.userId, userId)),
+    gdb.select().from(rides).where(eq(rides.userId, userId)),
+    gdb.select().from(expenses).where(eq(expenses.userId, userId)),
+    gdb.select().from(goals).where(eq(goals.userId, userId)),
+    gdb.select().from(maintenanceItems).where(eq(maintenanceItems.userId, userId)),
+    gdb.select().from(platformsUsed).where(eq(platformsUsed.userId, userId)),
+    gdb.select().from(subscriptions).where(eq(subscriptions.userId, userId)),
   ]);
 
   const user = userRows[0];
@@ -85,7 +88,7 @@ export async function GET() {
     compression: "DEFLATE",
   });
 
-  const filename = `piloto-export-${userId.slice(0, 8)}.zip`;
+  const filename = `copilote-export-${userId.slice(0, 8)}.zip`;
 
   return new NextResponse(new Uint8Array(buf), {
     status: 200,
@@ -93,6 +96,7 @@ export async function GET() {
       "Content-Type": "application/zip",
       "Content-Disposition": `attachment; filename="${filename}"`,
     },
+  });
   });
 }
 

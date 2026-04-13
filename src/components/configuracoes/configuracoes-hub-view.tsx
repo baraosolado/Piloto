@@ -9,12 +9,15 @@ import {
   ChevronRight,
   CreditCard,
   Headset,
+  LayoutGrid,
   LogOut,
+  Shield,
   User,
   UserCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { authClient } from "@/lib/auth-client";
+import { INTERNAL_ADMIN_BASE_PATH } from "@/lib/internal-admin-path";
 
 const menuItems: {
   href: string;
@@ -23,6 +26,11 @@ const menuItems: {
   iconClass?: string;
 }[] = [
   { href: "/configuracoes/perfil", label: "Perfil", icon: User },
+  {
+    href: "/configuracoes/plataformas",
+    label: "Plataformas",
+    icon: LayoutGrid,
+  },
   { href: "/configuracoes/veiculo", label: "Veículo", icon: Car },
   {
     href: "/configuracoes/plano",
@@ -31,18 +39,22 @@ const menuItems: {
     iconClass: "text-[#006d33]",
   },
   { href: "/configuracoes/conta", label: "Conta", icon: UserCircle },
+  { href: "/configuracoes/notificacoes", label: "Notificações", icon: Bell },
 ];
 
 type Props = {
   displayName: string;
   subtitle: string;
   appVersion: string;
+  /** Conta `super_admin` na BD (oculto durante personificação — sessão é o alvo). */
+  canAccessMestre: boolean;
 };
 
 export function ConfiguracoesHubView({
   displayName,
   subtitle,
   appVersion,
+  canAccessMestre,
 }: Props) {
   const router = useRouter();
   const initial = displayName.trim().charAt(0).toUpperCase() || "?";
@@ -112,22 +124,35 @@ export function ConfiguracoesHubView({
             </Link>
           ))}
 
-          <button
-            type="button"
-            className="group flex w-full items-center justify-between bg-white p-5 text-left transition-colors hover:bg-zinc-100"
-            onClick={() => toast.info("Notificações em breve.")}
-          >
-            <div className="flex items-center gap-4">
-              <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-[#eeeeee]">
-                <Bell className="size-5 text-black" strokeWidth={2} aria-hidden />
+          {canAccessMestre ? (
+            <Link
+              href={INTERNAL_ADMIN_BASE_PATH}
+              className="group flex items-center justify-between border-t border-zinc-200/80 bg-zinc-50 p-5 transition-colors hover:bg-zinc-100"
+            >
+              <div className="flex items-center gap-4">
+                <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-zinc-900">
+                  <Shield
+                    className="size-5 text-white"
+                    strokeWidth={2}
+                    aria-hidden
+                  />
+                </div>
+                <div className="min-w-0 text-left">
+                  <span className="font-semibold text-[#1a1c1c]">
+                    Administração
+                  </span>
+                  <p className="text-xs text-[#777777]">
+                    Utilizadores, personificação e contas
+                  </p>
+                </div>
               </div>
-              <span className="font-semibold text-[#1a1c1c]">Notificações</span>
-            </div>
-            <ChevronRight
-              className="size-5 text-[#777777] transition-transform group-hover:translate-x-1"
-              aria-hidden
-            />
-          </button>
+              <ChevronRight
+                className="size-5 shrink-0 text-[#777777] transition-transform group-hover:translate-x-1"
+                strokeWidth={2}
+                aria-hidden
+              />
+            </Link>
+          ) : null}
 
           <button
             type="button"
@@ -161,7 +186,7 @@ export function ConfiguracoesHubView({
 
         <div className="mt-12 pb-8 text-center">
           <p className="text-xs font-medium tracking-widest text-[#777777] uppercase">
-            Piloto v{appVersion}
+            Copilote v{appVersion}
           </p>
         </div>
       </main>

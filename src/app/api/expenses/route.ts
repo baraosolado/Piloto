@@ -12,9 +12,16 @@ import {
   type SQL,
 } from "drizzle-orm";
 import { z } from "zod";
-import { db } from "@/db";
-import { expenses, rides } from "@/db/schema";
-import { getSessionUserId } from "@/lib/api-session";
+import { getRequestDb } from "@/db/request-db";
+import { runWithAppUserId } from "@/db/run-with-app-user-id";
+import { expenses, rides, vehicles } from "@/db/schema";
+import { requireSession } from "@/lib/api-session";
+import {
+  fuelCategoryUiLabel,
+  fuelExpenseUi,
+  normalizePowertrain,
+  type VehiclePowertrain,
+} from "@/lib/vehicle-powertrain";
 import {
   countExpensesThisMonth,
   getEffectivePlan,
@@ -31,10 +38,10 @@ const categorySchema = z.enum([
 
 type ExpenseCategory = z.infer<typeof categorySchema>;
 
-function categoryLabel(c: ExpenseCategory): string {
+function categoryLabel(c: ExpenseCategory, fuelPt: VehiclePowertrain): string {
   switch (c) {
     case "fuel":
-      return "Combustível";
+      return fuelCategoryUiLabel(fuelPt);
     case "maintenance":
       return "Manutenção";
     case "insurance":
@@ -67,40 +74,43 @@ const listQuerySchema = z.object({
     .default("recent"),
 });
 
-const postBodySchema = z
-  .object({
-    category: categorySchema,
-    amount: z.number().positive(),
-    odometer: z.number().int().min(0).optional().nullable(),
-    liters: z.number().positive().optional().nullable(),
-    description: z.string().max(2000).nullable().optional(),
-    occurredAt: z.preprocess(
-      (v) => {
-        if (typeof v === "string" || typeof v === "number")
-          return new Date(v);
-        return v;
-      },
-      z.date({ invalid_type_error: "occurredAt inválido" }),
-    ),
-  })
-  .superRefine((data, ctx) => {
-    if (data.category === "fuel") {
-      if (data.odometer === undefined || data.odometer === null) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: "Odômetro obrigatório para combustível.",
-          path: ["odometer"],
-        });
+function buildPostBodySchema(pt: VehiclePowertrain) {
+  const ui = fuelExpenseUi(pt);
+  return z
+    .object({
+      category: categorySchema,
+      amount: z.number().positive(),
+      odometer: z.number().int().min(0).optional().nullable(),
+      liters: z.number().positive().optional().nullable(),
+      description: z.string().max(2000).nullable().optional(),
+      occurredAt: z.preprocess(
+        (v) => {
+          if (typeof v === "string" || typeof v === "number")
+            return new Date(v);
+          return v;
+        },
+        z.date({ invalid_type_error: "occurredAt inválido" }),
+      ),
+    })
+    .superRefine((data, ctx) => {
+      if (data.category === "fuel") {
+        if (data.odometer === undefined || data.odometer === null) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: ui.apiOdometerRequired,
+            path: ["odometer"],
+          });
+        }
+        if (data.liters === undefined || data.liters === null) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: ui.apiVolumeRequired,
+            path: ["liters"],
+          });
+        }
       }
-      if (data.liters === undefined || data.liters === null) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: "Litros obrigatórios para combustível.",
-          path: ["liters"],
-        });
-      }
-    }
-  });
+    });
+}
 
 function serializeExpense(row: typeof expenses.$inferSelect) {
   return {
@@ -149,7 +159,7 @@ function rideDateConditions(
 }
 
 export async function GET(request: Request) {
-  const auth = await getSessionUserId();
+  const auth = await requireSession();
   if ("response" in auth) return auth.response;
   const { userId } = auth;
 
@@ -178,7 +188,15 @@ export async function GET(request: Request) {
 
   const whereClause = and(...conditions);
 
-  const [countRow] = await db
+  return runWithAppUserId(userId, async () => {
+  const [vRow] = await getRequestDb()
+    .select({ powertrain: vehicles.powertrain })
+    .from(vehicles)
+    .where(eq(vehicles.userId, userId))
+    .limit(1);
+  const fuelPt = normalizePowertrain(vRow?.powertrain);
+
+  const [countRow] = await getRequestDb()
     .select({ n: count() })
     .from(expenses)
     .where(whereClause);
@@ -196,7 +214,7 @@ export async function GET(request: Request) {
           ? asc(expenses.amount)
           : desc(expenses.occurredAt);
 
-  const rows = await db
+  const rows = await getRequestDb()
     .select()
     .from(expenses)
     .where(whereClause)
@@ -204,7 +222,7 @@ export async function GET(request: Request) {
     .limit(limit)
     .offset(offset);
 
-  const [sumRow] = await db
+  const [sumRow] = await getRequestDb()
     .select({
       t: sql<string>`coalesce(sum(${expenses.amount}::numeric), 0)::text`,
     })
@@ -213,7 +231,7 @@ export async function GET(request: Request) {
 
   const totalAmount = Number.parseFloat(sumRow?.t ?? "0");
 
-  const byCategory = await db
+  const byCategory = await getRequestDb()
     .select({
       category: expenses.category,
       sub: sql<string>`coalesce(sum(${expenses.amount}::numeric), 0)::text`,
@@ -236,7 +254,7 @@ export async function GET(request: Request) {
     const amt = Number.parseFloat(first.sub);
     topCategory = {
       category: first.category,
-      label: categoryLabel(first.category),
+      label: categoryLabel(first.category, fuelPt),
       amount: amt,
       percentOfTotal: (amt / totalAmount) * 100,
     };
@@ -246,7 +264,7 @@ export async function GET(request: Request) {
     ...expenseDateConditions(userId, startDate, endDate),
     eq(expenses.category, "fuel"),
   );
-  const [fuelSumRow] = await db
+  const [fuelSumRow] = await getRequestDb()
     .select({
       t: sql<string>`coalesce(sum(${expenses.amount}::numeric), 0)::text`,
     })
@@ -255,7 +273,7 @@ export async function GET(request: Request) {
   const fuelTotal = Number.parseFloat(fuelSumRow?.t ?? "0");
 
   const rideWhere = and(...rideDateConditions(userId, startDate, endDate));
-  const [kmRow] = await db
+  const [kmRow] = await getRequestDb()
     .select({
       t: sql<string>`coalesce(sum(${rides.distanceKm}::numeric), 0)::text`,
     })
@@ -279,10 +297,11 @@ export async function GET(request: Request) {
     },
     error: null,
   });
+  });
 }
 
 export async function POST(request: Request) {
-  const auth = await getSessionUserId();
+  const auth = await requireSession();
   if ("response" in auth) return auth.response;
   const { userId, email } = auth;
 
@@ -299,7 +318,15 @@ export async function POST(request: Request) {
     );
   }
 
-  const body = postBodySchema.safeParse(json);
+  return runWithAppUserId(userId, async () => {
+  const [vRow] = await getRequestDb()
+    .select({ powertrain: vehicles.powertrain })
+    .from(vehicles)
+    .where(eq(vehicles.userId, userId))
+    .limit(1);
+  const fuelPt = normalizePowertrain(vRow?.powertrain);
+
+  const body = buildPostBodySchema(fuelPt).safeParse(json);
   if (!body.success) {
     const first = body.error.issues[0];
     return NextResponse.json(
@@ -333,7 +360,7 @@ export async function POST(request: Request) {
   }
 
   const d = body.data;
-  const [inserted] = await db
+  const [inserted] = await getRequestDb()
     .insert(expenses)
     .values({
       userId,
@@ -352,5 +379,6 @@ export async function POST(request: Request) {
   return NextResponse.json({
     data: { expense: serializeExpense(inserted) },
     error: null,
+  });
   });
 }

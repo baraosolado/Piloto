@@ -9,13 +9,18 @@ import { z } from "zod";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { authClient } from "@/lib/auth-client";
+import { formatAuthClientError } from "@/lib/auth-error";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
 const loginSchema = z.object({
-  email: z.string().email("E-mail inválido"),
-  password: z.string().min(8, "Mínimo 8 caracteres"),
+  email: z
+    .string()
+    .trim()
+    .email("E-mail inválido")
+    .transform((v) => v.toLowerCase()),
+  password: z.string().trim().min(8, "Mínimo 8 caracteres"),
 });
 
 export type LoginFormValues = z.infer<typeof loginSchema>;
@@ -37,6 +42,18 @@ function isRateLimitError(error: { status?: number; message?: string } | null) {
   );
 }
 
+/** Resposta esperada do Better Auth quando e-mail ou senha não batem. */
+function isInvalidCredentialsError(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const o = error as { status?: number; message?: string };
+  if (o.status === 401) return true;
+  const m = (o.message ?? "").toLowerCase();
+  return (
+    m.includes("invalid email or password") ||
+    m.includes("invalid credentials")
+  );
+}
+
 export function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -51,19 +68,31 @@ export function LoginForm() {
   async function onSubmit(data: LoginFormValues) {
     const result = await authClient.signIn.email({
       email: data.email,
-      password: data.password,
+      password: data.password.trim(),
     });
 
     if (result.error) {
       if (isRateLimitError(result.error)) {
         toast.error("Muitas tentativas. Aguarde 15 minutos.");
+      } else if (isInvalidCredentialsError(result.error)) {
+        toast.error("E-mail ou senha incorretos");
       } else {
-        const msg = result.error.message?.trim();
-        if (process.env.NODE_ENV === "development" && msg) {
-          console.error("[login] Better Auth:", result.error);
-          toast.error(`Falha no login: ${msg}`);
+        const { message: authMsg, logLine } = formatAuthClientError(
+          result.error,
+        );
+        if (process.env.NODE_ENV === "development") {
+          console.warn("[login] Better Auth:", logLine);
+        }
+        if (process.env.NODE_ENV === "development") {
+          toast.error(
+            authMsg
+              ? `Falha no login: ${authMsg}`
+              : logLine !== "{}"
+                ? `Falha no login: ${logLine}`
+                : "Falha no login: resposta vazia. Confira NEXT_PUBLIC_APP_URL e BETTER_AUTH_URL no .env.local (ex.: http://localhost:3000) e reinicie o npm run dev.",
+          );
         } else {
-          toast.error("Email ou senha incorretos");
+          toast.error("Não foi possível entrar. Tente de novo.");
         }
       }
       return;

@@ -29,6 +29,48 @@
       "when": 1742500000000,
       "tag": "0003_report_downloads",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1775868936054,
+      "tag": "0004_web_push_maintenance",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1776026640006,
+      "tag": "0005_lgpd_consent_users",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1776029039174,
+      "tag": "0006_admin_plugin_fields",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1776120000000,
+      "tag": "0007_super_admin_dev_piloto",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1776200000000,
+      "tag": "0008_enable_row_level_security",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1776280000000,
+      "tag": "0009_vehicle_powertrain",
+      "breakpoints": true
     }
   ]
 }

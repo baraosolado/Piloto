@@ -136,6 +136,10 @@ export function CorridasView({
   vehicle,
   showFreeLimitBanner,
 }: CorridasViewProps) {
+  const energyFootnote =
+    vehicle?.powertrain === "electric"
+      ? "Energia real (recargas) entra em Gastos"
+      : "Combustível real entra em Gastos";
   const router = useRouter();
   const searchParams = useSearchParams();
   const searchKey = searchParams.toString();
@@ -229,7 +233,7 @@ export function CorridasView({
         toast.error(json.error?.message ?? "Não foi possível excluir.");
         return;
       }
-      toast.success("Corrida excluída.");
+      toast.success("Registro excluído.");
       setDeleteId(null);
       await fetchList("silent");
       router.refresh();
@@ -254,8 +258,8 @@ export function CorridasView({
               aria-hidden
             />
             <p className="text-sm font-bold tracking-tight">
-              Você atingiu o limite de 50 corridas do plano gratuito neste mês.
-              Faça upgrade para registrar corridas ilimitadas.
+              Você atingiu o limite de 50 registros do plano gratuito neste mês.
+              Faça upgrade para registros ilimitados.
             </p>
           </div>
           <Button
@@ -263,7 +267,7 @@ export function CorridasView({
             size="sm"
             className="shrink-0 bg-black font-bold uppercase tracking-wider text-white hover:bg-black/90"
           >
-            <Link href="/planos">Ver planos</Link>
+            <Link href="/configuracoes/plano">Plano e pagamento</Link>
           </Button>
         </div>
       ) : null}
@@ -279,7 +283,7 @@ export function CorridasView({
           }}
         >
           <Plus className="size-5" strokeWidth={2} />
-          + Nova corrida
+          Resumo do dia
         </Button>
       </header>
 
@@ -288,7 +292,7 @@ export function CorridasView({
       <section className="mb-10 grid grid-cols-1 gap-6 md:grid-cols-3">
         <div className="rounded-xl border border-border/60 bg-card p-6 shadow-[0_4px_20px_0_rgba(0,0,0,0.02)]">
           <p className="mb-2 text-xs font-medium tracking-widest text-muted-foreground uppercase">
-            Total de corridas
+            Dias registrados
           </p>
           {loading && !payload ? (
             <Skeleton className="h-10 w-24" />
@@ -312,7 +316,7 @@ export function CorridasView({
         </div>
         <div className="rounded-xl border border-black bg-black p-6 text-white shadow-[0_8px_30px_rgb(0,0,0,0.12)]">
           <p className="mb-2 text-xs font-medium tracking-widest text-neutral-400 uppercase">
-            Lucro líquido
+            Lucro estimado (dia)
           </p>
           {loading && !payload ? (
             <Skeleton className="h-10 w-40 bg-white/20" />
@@ -321,16 +325,22 @@ export function CorridasView({
               Cadastre o veículo para ver o lucro
             </p>
           ) : (
-            <p
-              className={cn(
-                "text-4xl font-bold tracking-tighter tabular-nums",
-                (payload?.summary.totalNetProfit ?? 0) >= 0
-                  ? "text-[#5adf82]"
-                  : "text-red-300",
-              )}
-            >
-              {brl.format(payload?.summary.totalNetProfit ?? 0)}
-            </p>
+            <>
+              <p
+                className={cn(
+                  "text-4xl font-bold tracking-tighter tabular-nums",
+                  (payload?.summary.totalNetProfit ?? 0) >= 0
+                    ? "text-[#5adf82]"
+                    : "text-red-300",
+                )}
+              >
+                {brl.format(payload?.summary.totalNetProfit ?? 0)}
+              </p>
+              <p className="mt-2 text-[10px] font-medium leading-snug text-white/55">
+                Bruto − depreciação por km. {energyFootnote}; não desconta outros
+                gastos do período.
+              </p>
+            </>
           )}
         </div>
       </section>
@@ -350,10 +360,11 @@ export function CorridasView({
             </div>
           </div>
           <h2 className="mb-2 text-2xl font-bold tracking-tight">
-            Nenhuma corrida registrada
+            Nenhum dia registrado
           </h2>
           <p className="mb-8 max-w-sm text-muted-foreground">
-            Registre sua primeira corrida para começar a acompanhar seu lucro.
+            Ao fim do dia, lance o total de km e o faturamento para acompanhar
+            seu lucro.
           </p>
           <Button
             type="button"
@@ -364,7 +375,7 @@ export function CorridasView({
             }}
           >
             <Plus className="size-4" />
-            + Registrar corrida
+            Registrar dia
           </Button>
         </section>
       ) : null}
@@ -376,22 +387,22 @@ export function CorridasView({
               <TableHeader>
                 <TableRow className="border-b bg-muted/50 hover:bg-muted/50">
                   <TableHead className="px-4 py-4 text-[10px] font-bold tracking-widest text-muted-foreground uppercase sm:px-6">
-                    Data/Hora
+                    Dia
                   </TableHead>
                   <TableHead className="px-4 py-4 text-[10px] font-bold tracking-widest text-muted-foreground uppercase sm:px-6">
                     Plataforma
                   </TableHead>
                   <TableHead className="px-4 py-4 text-[10px] font-bold tracking-widest text-muted-foreground uppercase sm:px-6">
-                    Valor bruto
+                    Bruto do dia
                   </TableHead>
                   <TableHead className="px-4 py-4 text-[10px] font-bold tracking-widest text-muted-foreground uppercase sm:px-6">
-                    Km
+                    Km do dia
                   </TableHead>
                   <TableHead className="px-4 py-4 text-[10px] font-bold tracking-widest text-muted-foreground uppercase sm:px-6">
                     Custo comb.
                   </TableHead>
                   <TableHead className="px-4 py-4 text-right text-[10px] font-bold tracking-widest text-muted-foreground uppercase sm:px-6">
-                    Lucro líq.
+                    Lucro estim.
                   </TableHead>
                   <TableHead className="w-[100px] px-4 py-4 sm:px-6" />
                 </TableRow>
@@ -423,16 +434,11 @@ export function CorridasView({
                           className="group border-b border-border/40 hover:bg-muted/30"
                         >
                           <TableCell className="px-4 py-4 sm:px-6">
-                            <div className="flex flex-col">
-                              <span className="text-sm font-bold">
-                                {format(started, "d MMM yyyy", {
-                                  locale: ptBR,
-                                })}
-                              </span>
-                              <span className="text-xs text-muted-foreground">
-                                {format(started, "HH:mm")}
-                              </span>
-                            </div>
+                            <span className="text-sm font-bold">
+                              {format(started, "d MMM yyyy", {
+                                locale: ptBR,
+                              })}
+                            </span>
                           </TableCell>
                           <TableCell className="px-4 py-4 sm:px-6">
                             <span
@@ -481,7 +487,7 @@ export function CorridasView({
                                 variant="ghost"
                                 size="icon-sm"
                                 className="text-muted-foreground hover:text-foreground"
-                                aria-label="Editar corrida"
+                                aria-label="Editar registro do dia"
                                 onClick={() => {
                                   setEditingRide(rideToFormRide(row));
                                   setFormOpen(true);
@@ -494,7 +500,7 @@ export function CorridasView({
                                 variant="ghost"
                                 size="icon-sm"
                                 className="text-destructive/70 hover:text-destructive"
-                                aria-label="Excluir corrida"
+                                aria-label="Excluir registro do dia"
                                 onClick={() => setDeleteId(row.id)}
                               >
                                 <Trash2 className="size-4" />
@@ -513,7 +519,7 @@ export function CorridasView({
       {total > 0 ? (
         <div className="mt-6 flex flex-col items-stretch gap-4 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-center text-sm text-muted-foreground sm:text-left">
-            Mostrando {rangeStart}–{rangeEnd} de {total} corridas
+            Mostrando {rangeStart}–{rangeEnd} de {total} registros
           </p>
           <div className="flex justify-center gap-2 sm:justify-end">
             <Button
@@ -561,9 +567,9 @@ export function CorridasView({
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Excluir corrida?</AlertDialogTitle>
+            <AlertDialogTitle>Excluir este dia?</AlertDialogTitle>
             <AlertDialogDescription>
-              Esta ação não pode ser desfeita. A corrida será removida do seu
+              Esta ação não pode ser desfeita. O registro será removido do seu
               histórico.
             </AlertDialogDescription>
           </AlertDialogHeader>

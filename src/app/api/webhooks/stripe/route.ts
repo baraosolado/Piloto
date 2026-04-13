@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
 import type Stripe from "stripe";
+import { runWithAppUserId } from "@/db/run-with-app-user-id";
 import { getStripe, getSubscription } from "@/lib/stripe";
 import {
   downgradeToFreeForUser,
   getSubscriptionByStripeSubscriptionId,
   upsertPremiumFromCheckout,
 } from "@/lib/subscriptions-repo";
+import { logStripeWebhookRejected } from "@/lib/security-log";
 
 export const runtime = "nodejs";
 
@@ -57,6 +59,7 @@ export async function POST(request: Request) {
 
   const signature = request.headers.get("stripe-signature");
   if (!signature) {
+    logStripeWebhookRejected(request, "missing_signature");
     return NextResponse.json({ error: "Assinatura ausente" }, { status: 400 });
   }
 
@@ -65,6 +68,7 @@ export async function POST(request: Request) {
   try {
     event = stripe.webhooks.constructEvent(rawBody, signature, webhookSecret);
   } catch {
+    logStripeWebhookRejected(request, "invalid_signature");
     return NextResponse.json({ error: "Assinatura inválida" }, { status: 400 });
   }
 
@@ -94,12 +98,14 @@ export async function POST(request: Request) {
         }
 
         const sub = await getSubscription(subscriptionId);
-        await upsertPremiumFromCheckout({
-          userId,
-          stripeCustomerId: customerId,
-          stripeSubscriptionId: subscriptionId,
-          currentPeriodEnd: new Date(sub.current_period_end * 1000),
-          cancelAtPeriodEnd: sub.cancel_at_period_end ?? false,
+        await runWithAppUserId(userId, async () => {
+          await upsertPremiumFromCheckout({
+            userId,
+            stripeCustomerId: customerId,
+            stripeSubscriptionId: subscriptionId,
+            currentPeriodEnd: new Date(sub.current_period_end * 1000),
+            cancelAtPeriodEnd: sub.cancel_at_period_end ?? false,
+          });
         });
         break;
       }
@@ -115,17 +121,19 @@ export async function POST(request: Request) {
           break;
         }
 
-        if (subscriptionGrantsPremium(sub)) {
-          await upsertPremiumFromCheckout({
-            userId,
-            stripeCustomerId: customerIdOf(sub),
-            stripeSubscriptionId: sub.id,
-            currentPeriodEnd: new Date(sub.current_period_end * 1000),
-            cancelAtPeriodEnd: sub.cancel_at_period_end ?? false,
-          });
-        } else {
-          await downgradeToFreeForUser(userId);
-        }
+        await runWithAppUserId(userId, async () => {
+          if (subscriptionGrantsPremium(sub)) {
+            await upsertPremiumFromCheckout({
+              userId,
+              stripeCustomerId: customerIdOf(sub),
+              stripeSubscriptionId: sub.id,
+              currentPeriodEnd: new Date(sub.current_period_end * 1000),
+              cancelAtPeriodEnd: sub.cancel_at_period_end ?? false,
+            });
+          } else {
+            await downgradeToFreeForUser(userId);
+          }
+        });
         break;
       }
 
@@ -135,7 +143,9 @@ export async function POST(request: Request) {
           sub.metadata?.userId?.trim() ??
           (await getSubscriptionByStripeSubscriptionId(sub.id))?.userId;
         if (userId) {
-          await downgradeToFreeForUser(userId);
+          await runWithAppUserId(userId, async () => {
+            await downgradeToFreeForUser(userId);
+          });
         }
         break;
       }

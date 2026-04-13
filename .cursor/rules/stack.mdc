@@ -1,10 +1,10 @@
 ---
-description: Stack tecnológica do projeto Piloto — versões, configurações e padrões
+description: Stack tecnológica do projeto Copilote — versões, configurações e padrões
 globs: ["**/*.ts", "**/*.tsx", "**/*.js", "**/*.jsx", "**/*.css"]
 alwaysApply: true
 ---
 
-# Stack Tecnológica — Piloto
+# Stack Tecnológica — Copilote
 
 ## Versões obrigatórias (nunca instalar versão diferente)
 
@@ -238,7 +238,7 @@ Toda configuração vai no globals.css via @theme.
 
 ## Variáveis de ambiente (.env.local)
 
-DATABASE_URL="postgresql://piloto_user:senha@localhost:5432/piloto_db"
+DATABASE_URL="postgresql://copilote_user:senha@localhost:5432/copilote_db"
 BETTER_AUTH_SECRET="gerar com: openssl rand -base64 32"
 BETTER_AUTH_URL="https://seudominio.com.br"
 STRIPE_SECRET_KEY="sk_live_..."

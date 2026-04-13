@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
-import { db } from "@/db";
+import { getRequestDb } from "@/db/request-db";
+import { runWithAppUserId } from "@/db/run-with-app-user-id";
 import { users } from "@/db/schema";
-import { getSessionUserId } from "@/lib/api-session";
+import { requireSession } from "@/lib/api-session";
 
 const profileSchema = z.object({
   name: z.string().min(1, "Informe o nome").max(255),
@@ -11,7 +12,7 @@ const profileSchema = z.object({
 });
 
 export async function PATCH(request: Request) {
-  const auth = await getSessionUserId();
+  const auth = await requireSession();
   if ("response" in auth) return auth.response;
 
   let json: unknown;
@@ -49,19 +50,21 @@ export async function PATCH(request: Request) {
         ? null
         : parsed.data.city.trim().slice(0, 100);
 
-  const [updated] = await db
-    .update(users)
-    .set({
-      name: parsed.data.name.trim().slice(0, 255),
-      city: cityVal,
-    })
-    .where(eq(users.id, auth.userId))
-    .returning({
-      id: users.id,
-      name: users.name,
-      email: users.email,
-      city: users.city,
-    });
+  return runWithAppUserId(auth.userId, async () => {
+    const [updated] = await getRequestDb()
+      .update(users)
+      .set({
+        name: parsed.data.name.trim().slice(0, 255),
+        city: cityVal,
+      })
+      .where(eq(users.id, auth.userId))
+      .returning({
+        id: users.id,
+        name: users.name,
+        email: users.email,
+        city: users.city,
+      });
 
-  return NextResponse.json({ data: updated, error: null });
+    return NextResponse.json({ data: updated, error: null });
+  });
 }

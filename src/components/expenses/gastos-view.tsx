@@ -31,6 +31,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  fuelCategoryUiLabel,
+  fuelExpenseUi,
+  fuelVolumeUnitShort,
+  type VehiclePowertrain,
+} from "@/lib/vehicle-powertrain";
 import { cn } from "@/lib/utils";
 
 const brl = new Intl.NumberFormat("pt-BR", {
@@ -85,10 +91,13 @@ function buildExpensesApiQuery(sp: URLSearchParams): string {
   return params.toString();
 }
 
-function categoryLabel(c: ApiExpense["category"]): string {
+function categoryLabel(
+  c: ApiExpense["category"],
+  fuelPt: VehiclePowertrain,
+): string {
   switch (c) {
     case "fuel":
-      return "Combustível";
+      return fuelCategoryUiLabel(fuelPt);
     case "maintenance":
       return "Manutenção";
     case "insurance":
@@ -133,9 +142,15 @@ function expenseToFormExpense(e: ApiExpense): ExpenseFormExpense {
 
 export type GastosViewProps = {
   showFreeLimitBanner: boolean;
+  vehiclePowertrain: VehiclePowertrain;
 };
 
-export function GastosView({ showFreeLimitBanner }: GastosViewProps) {
+export function GastosView({
+  showFreeLimitBanner,
+  vehiclePowertrain,
+}: GastosViewProps) {
+  const fuelUi = fuelExpenseUi(vehiclePowertrain);
+  const volUnit = fuelVolumeUnitShort(vehiclePowertrain);
   const router = useRouter();
   const searchParams = useSearchParams();
   const searchKey = searchParams.toString();
@@ -269,7 +284,7 @@ export function GastosView({ showFreeLimitBanner }: GastosViewProps) {
             size="sm"
             className="shrink-0 bg-black font-bold uppercase tracking-wider text-white hover:bg-black/90"
           >
-            <Link href="/planos">Ver planos</Link>
+            <Link href="/configuracoes/plano">Plano e pagamento</Link>
           </Button>
         </div>
       ) : null}
@@ -289,7 +304,7 @@ export function GastosView({ showFreeLimitBanner }: GastosViewProps) {
         </Button>
       </header>
 
-      <ExpensesFilters />
+      <ExpensesFilters vehiclePowertrain={vehiclePowertrain} />
 
       <section className="mb-10 grid grid-cols-1 gap-6 md:grid-cols-3">
         <div className="rounded-xl border border-border/60 bg-card p-6 shadow-[0_4px_20px_0_rgba(0,0,0,0.02)]">
@@ -331,7 +346,7 @@ export function GastosView({ showFreeLimitBanner }: GastosViewProps) {
         </div>
         <div className="rounded-xl border border-black bg-black p-6 text-white shadow-[0_8px_30px_rgb(0,0,0,0.12)]">
           <p className="mb-2 text-xs font-medium tracking-widest text-neutral-400 uppercase">
-            Custo/km (combustível ÷ km corridas)
+            {fuelUi.costPerKmCardTitle}
           </p>
           {loading && !payload ? (
             <Skeleton className="h-10 w-40 bg-white/20" />
@@ -341,7 +356,7 @@ export function GastosView({ showFreeLimitBanner }: GastosViewProps) {
             </p>
           ) : (
             <p className="text-lg font-semibold text-white/80">
-              Registre abastecimento e corridas no período para estimar.
+              {fuelUi.estimateHint}
             </p>
           )}
         </div>
@@ -365,8 +380,7 @@ export function GastosView({ showFreeLimitBanner }: GastosViewProps) {
             Nenhum gasto registrado
           </h2>
           <p className="mb-8 max-w-sm text-muted-foreground">
-            Registre abastecimentos e despesas do carro para ver custo por km e
-            totais.
+            {fuelUi.emptyStateHint}
           </p>
           <Button
             type="button"
@@ -419,7 +433,7 @@ export function GastosView({ showFreeLimitBanner }: GastosViewProps) {
                       const desc =
                         row.description?.trim() ||
                         (row.category === "fuel" && row.liters
-                          ? `${row.liters.toLocaleString("pt-BR", { maximumFractionDigits: 2 })} L`
+                          ? `${row.liters.toLocaleString("pt-BR", { maximumFractionDigits: 2 })} ${volUnit}`
                           : "—");
                       return (
                         <TableRow
@@ -438,7 +452,7 @@ export function GastosView({ showFreeLimitBanner }: GastosViewProps) {
                                 categoryBadgeClass(row.category),
                               )}
                             >
-                              {categoryLabel(row.category)}
+                              {categoryLabel(row.category, vehiclePowertrain)}
                             </span>
                           </TableCell>
                           <TableCell className="max-w-[200px] truncate px-4 py-4 text-sm text-muted-foreground sm:max-w-xs sm:px-6">
@@ -517,6 +531,7 @@ export function GastosView({ showFreeLimitBanner }: GastosViewProps) {
       ) : null}
 
       <ExpenseFormDrawer
+        vehiclePowertrain={vehiclePowertrain}
         expense={editingExpense ?? undefined}
         open={formOpen}
         onOpenChange={(open) => {

@@ -1,5 +1,5 @@
 import { and, desc, eq, gte, lte } from "drizzle-orm";
-import { db } from "@/db";
+import { getRequestDb } from "@/db/request-db";
 import {
   expenses,
   goals,
@@ -10,7 +10,7 @@ import {
 import {
   calculateCostPerKm,
   calculateMonthlyGoalProgress,
-  calculateRideCost,
+  calculateRideCostForPnlAggregate,
   calculateRideProfit,
   type Expense,
   type Goal,
@@ -47,7 +47,7 @@ function sumRideProfit(rows: RideRow[], vehicle: Vehicle): number {
   let s = 0;
   for (const row of rows) {
     const r = toRide(row);
-    const cost = calculateRideCost(r.distanceKm, vehicle);
+    const cost = calculateRideCostForPnlAggregate(r.distanceKm, vehicle);
     if (Number.isNaN(cost)) continue;
     s += calculateRideProfit(r.grossAmount, cost);
   }
@@ -55,7 +55,7 @@ function sumRideProfit(rows: RideRow[], vehicle: Vehicle): number {
 }
 
 export async function getUserDisplayName(userId: string): Promise<string> {
-  const [row] = await db
+  const [row] = await getRequestDb()
     .select({ name: users.name })
     .from(users)
     .where(eq(users.id, userId))
@@ -66,7 +66,7 @@ export async function getUserDisplayName(userId: string): Promise<string> {
 export async function getVehicleForUser(
   userId: string,
 ): Promise<typeof vehicles.$inferSelect | null> {
-  const [row] = await db
+  const [row] = await getRequestDb()
     .select()
     .from(vehicles)
     .where(eq(vehicles.userId, userId))
@@ -78,7 +78,7 @@ export async function fetchRidesInRange(
   userId: string,
   range: DateRange,
 ): Promise<RideRow[]> {
-  return db
+  return getRequestDb()
     .select()
     .from(rides)
     .where(
@@ -94,7 +94,7 @@ export async function fetchExpensesInRange(
   userId: string,
   range: DateRange,
 ): Promise<ExpenseRow[]> {
-  return db
+  return getRequestDb()
     .select()
     .from(expenses)
     .where(
@@ -111,7 +111,7 @@ export async function fetchRecentRidesInRange(
   range: DateRange,
   limit: number,
 ): Promise<RideRow[]> {
-  return db
+  return getRequestDb()
     .select()
     .from(rides)
     .where(
@@ -130,7 +130,7 @@ export async function fetchGoalForUtcMonth(
   year: number,
   month: number,
 ) {
-  const [row] = await db
+  const [row] = await getRequestDb()
     .select()
     .from(goals)
     .where(
@@ -170,6 +170,7 @@ export function aggregatePeriodStats(
   const expensesCalc = expenseRows.map(toExpense);
   let netProfit = 0;
   if (vehicle) {
+    /* Combustível estimado na corrida não entra aqui — só depreciação/km; abastecimentos vão em Gastos. */
     netProfit = sumRideProfit(rideRows, vehicle) - totalExpenses;
   } else {
     netProfit = gross - totalExpenses;
@@ -200,7 +201,7 @@ export function buildDailyProfitSeries(
   for (const row of rideRows) {
     const r = toRide(row);
     const key = r.startedAt.toISOString().slice(0, 10);
-    const cost = calculateRideCost(r.distanceKm, vehicle);
+    const cost = calculateRideCostForPnlAggregate(r.distanceKm, vehicle);
     if (Number.isNaN(cost)) continue;
     const p = calculateRideProfit(r.grossAmount, cost);
     byDay.set(key, (byDay.get(key) ?? 0) + p);

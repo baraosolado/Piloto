@@ -1,5 +1,5 @@
 import { desc, eq } from "drizzle-orm";
-import { db } from "@/db";
+import { getRequestDb } from "@/db/request-db";
 import { maintenanceItems, reportDownloads } from "@/db/schema";
 import {
   aggregatePeriodStats,
@@ -8,7 +8,15 @@ import {
   getVehicleForUser,
 } from "@/lib/dashboard-data";
 import { computeMaintenanceDerived, sumProvisionPerKm } from "@/lib/maintenance-computed";
-import { getRelatorioMonthPreview } from "@/lib/relatorio-month-preview";
+import {
+  getRelatorioDateRangePreview,
+  getRelatorioMonthPreview,
+  inclusiveUtcCalendarDayCount,
+} from "@/lib/relatorio-month-preview";
+import {
+  vehicleFromVehicleRow,
+  type VehiclePowertrain,
+} from "@/lib/vehicle-powertrain";
 
 export type PeriodoAnteriorResumo = {
   lucroLiquido: number;
@@ -27,7 +35,7 @@ async function fetchReportDownloadsSafe(
   userId: string,
 ): Promise<ReportDownloadRow[]> {
   try {
-    return await db
+    return await getRequestDb()
       .select({
         id: reportDownloads.id,
         month: reportDownloads.month,
@@ -63,6 +71,8 @@ async function fetchReportDownloadsSafe(
 
 export type ReportsSummary = {
   preview: Awaited<ReturnType<typeof getRelatorioMonthPreview>>;
+  /** Propulsão do veículo cadastrado (rótulos de abastecimento / energia). */
+  vehiclePowertrain: VehiclePowertrain;
   hasRides: boolean;
   periodoAnterior: PeriodoAnteriorResumo | null;
   plataformas: {
@@ -147,6 +157,24 @@ function prevMonth(year: number, month1to12: number) {
   return { year, month: month1to12 - 1 };
 }
 
+/** Janela imediatamente anterior, com o mesmo número de dias UTC (inclusivos). */
+function previousUtcRangeInclusive(
+  start: Date,
+  end: Date,
+): { start: Date; end: Date } {
+  const nDays = inclusiveUtcCalendarDayCount(start, end);
+  if (nDays <= 0) {
+    return { start, end };
+  }
+  const prevEnd = new Date(start);
+  prevEnd.setUTCDate(prevEnd.getUTCDate() - 1);
+  prevEnd.setUTCHours(23, 59, 59, 999);
+  const prevStart = new Date(prevEnd);
+  prevStart.setUTCDate(prevStart.getUTCDate() - (nDays - 1));
+  prevStart.setUTCHours(0, 0, 0, 0);
+  return { start: prevStart, end: prevEnd };
+}
+
 const SHIFT_META: {
   labelFull: string;
   turno: string;
@@ -226,7 +254,7 @@ export async function getReportsSummary(
     getRelatorioMonthPreview(userId, year, month1to12),
     fetchExpensesInRange(userId, monthRangeUtc(year, month1to12)),
     getVehicleForUser(userId),
-    db
+    getRequestDb()
       .select()
       .from(maintenanceItems)
       .where(eq(maintenanceItems.userId, userId)),
@@ -243,13 +271,7 @@ export async function getReportsSummary(
   ]);
 
   const vehicleForAgg =
-    vehicleRow != null
-      ? {
-          fuelConsumption: Number(vehicleRow.fuelConsumption),
-          fuelPrice: Number(vehicleRow.fuelPrice),
-          depreciationPerKm: Number(vehicleRow.depreciationPerKm),
-        }
-      : null;
+    vehicleRow != null ? vehicleFromVehicleRow(vehicleRow) : null;
 
   const prevStats = aggregatePeriodStats(
     prevRides,
@@ -295,8 +317,10 @@ export async function getReportsSummary(
     string,
     { label: string; valor: number; ocorrencias: number }
   >();
+  const vehiclePowertrain: VehiclePowertrain = preview.fuel.powertrain;
+
   const labels: Record<string, string> = {
-    fuel: "Combustível",
+    fuel: vehiclePowertrain === "electric" ? "Energia" : "Combustível",
     maintenance: "Manutenção",
     insurance: "Seguro",
     fine: "Multa",
@@ -380,10 +404,12 @@ export async function getReportsSummary(
     .filter((e) => e.category === "maintenance")
     .reduce((s, e) => s + Number(e.amount), 0);
 
-  const daysInMonth = new Date(Date.UTC(year, month1to12, 0)).getUTCDate();
+  const daysForMeta =
+    preview.periodMetaDays ??
+    new Date(Date.UTC(year, month1to12, 0)).getUTCDate();
   const goal = preview.goal;
   const metaDiaria =
-    goal != null ? goal.monthlyTarget / daysInMonth : null;
+    goal != null ? goal.monthlyTarget / daysForMeta : null;
   const atingida = goal != null && goal.earnedTowardGoal >= goal.monthlyTarget;
   const superouValor =
     goal != null && atingida
@@ -403,6 +429,250 @@ export async function getReportsSummary(
 
   return {
     preview,
+    vehiclePowertrain,
+    hasRides,
+    periodoAnterior,
+    plataformas,
+    turnos,
+    gastosPorCategoria,
+    abastecimentos: {
+      totalLitros,
+      totalGasto: totalFuelCost,
+      precoMedioLitro,
+      quantidade: fuelEx.length,
+    },
+    eficienciaVeiculo: {
+      consumoRealKmL,
+      custoKmCombustivel,
+      custoKmTotal,
+      depreciacaoKm: depKm,
+    },
+    metaDetalhe: {
+      definida: goal != null,
+      monthlyTarget: goal?.monthlyTarget ?? null,
+      earned: goal?.earnedTowardGoal ?? 0,
+      percentage: goal?.percentage ?? 0,
+      atingida,
+      superouValor,
+      faltaValor,
+      metaDiaria,
+      melhorDia: preview.bestWeekdayLabel,
+      piorDia: preview.worstWeekdayLabel,
+      ticketMedio: preview.ticketMedioLiquido,
+    },
+    manutencao: {
+      itens: manutencaoItens,
+      provisaoPorKm,
+      gastoMes: gastoManutencaoMes,
+    },
+    indicadores: {
+      margemLiquidaPct,
+      horasTrabalhadas: preview.workHours,
+      diasTrabalhados: preview.workDays,
+      roiOperacionalPct,
+      rendaHoraBruta: preview.grossPerHour,
+      rendaHoraLiquida: preview.netPerHour,
+      ticketMedioLiquido: preview.ticketMedioLiquido,
+    },
+    historicoDownloads: historicoRows.map((r) => ({
+      id: r.id,
+      month: r.month,
+      year: r.year,
+      generatedAt: r.generatedAt,
+    })),
+  };
+}
+
+export async function getReportsSummaryForRange(
+  userId: string,
+  rangeStart: Date,
+  rangeEnd: Date,
+): Promise<ReportsSummary> {
+  const [
+    preview,
+    expenseRows,
+    vehicleRow,
+    maintRows,
+    historicoRows,
+  ] = await Promise.all([
+    getRelatorioDateRangePreview(userId, rangeStart, rangeEnd),
+    fetchExpensesInRange(userId, { start: rangeStart, end: rangeEnd }),
+    getVehicleForUser(userId),
+    getRequestDb()
+      .select()
+      .from(maintenanceItems)
+      .where(eq(maintenanceItems.userId, userId)),
+    fetchReportDownloadsSafe(userId),
+  ]);
+
+  const hasRides = preview.totalRides > 0;
+
+  const prevRange = previousUtcRangeInclusive(rangeStart, rangeEnd);
+  const [prevRides, prevExpenses] = await Promise.all([
+    fetchRidesInRange(userId, prevRange),
+    fetchExpensesInRange(userId, prevRange),
+  ]);
+
+  const vehicleForAgg =
+    vehicleRow != null ? vehicleFromVehicleRow(vehicleRow) : null;
+
+  const prevStats = aggregatePeriodStats(
+    prevRides,
+    prevExpenses,
+    vehicleForAgg,
+  );
+  const periodoAnterior: PeriodoAnteriorResumo = {
+    lucroLiquido: prevStats.netProfit,
+    faturamentoBruto: prevStats.gross,
+    gastos: prevStats.totalExpenses,
+  };
+
+  let bestPph = -Infinity;
+  for (const p of preview.platformRows) {
+    if (p.rideCount === 0) continue;
+    if (p.profitPerHour > bestPph) bestPph = p.profitPerHour;
+  }
+
+  const plataformas = preview.platformRows.map((p) => ({
+    platform: p.platform,
+    platformKey: platformKeyFromLabel(p.platform),
+    corridas: p.rideCount,
+    faturamento: p.gross,
+    lucroLiquido: p.netProfit,
+    lucroPorHora: p.profitPerHour,
+    isBestLucroHora:
+      p.rideCount > 0 && bestPph > -Infinity && p.profitPerHour === bestPph,
+  }));
+
+  const shifts = preview.shiftRanking;
+  const turnos = shifts.map((s, i) =>
+    mapShiftRow(
+      s.rank,
+      s.label,
+      s.profitPerHour,
+      i === 0 && shifts.length > 0,
+      i === shifts.length - 1 && shifts.length > 1,
+    ),
+  );
+
+  const totalGastos = preview.totalExpenses;
+  const byCat = new Map<
+    string,
+    { label: string; valor: number; ocorrencias: number }
+  >();
+  const vehiclePowertrain: VehiclePowertrain = preview.fuel.powertrain;
+
+  const labels: Record<string, string> = {
+    fuel: vehiclePowertrain === "electric" ? "Energia" : "Combustível",
+    maintenance: "Manutenção",
+    insurance: "Seguro",
+    fine: "Multa",
+    other: "Outros",
+  };
+  for (const e of expenseRows) {
+    const cat = e.category;
+    const cur = byCat.get(cat) ?? {
+      label: labels[cat] ?? cat,
+      valor: 0,
+      ocorrencias: 0,
+    };
+    cur.valor += Number(e.amount);
+    cur.ocorrencias += 1;
+    byCat.set(cat, cur);
+  }
+  const gastosPorCategoria = Array.from(byCat.entries())
+    .map(([categoria, v]) => ({
+      categoria,
+      label: v.label,
+      valor: v.valor,
+      percentualDoTotal:
+        totalGastos > 0 ? (v.valor / totalGastos) * 100 : 0,
+      ocorrencias: v.ocorrencias,
+    }))
+    .sort((a, b) => b.valor - a.valor);
+
+  const fuelEx = expenseRows.filter((e) => e.category === "fuel");
+  const totalLitros = fuelEx.reduce((s, e) => {
+    const L = e.liters != null ? Number(e.liters) : 0;
+    return s + (Number.isFinite(L) ? L : 0);
+  }, 0);
+  const totalFuelCost = fuelEx.reduce((s, e) => s + Number(e.amount), 0);
+  const precoMedioLitro =
+    totalLitros > 0 ? totalFuelCost / totalLitros : 0;
+
+  const depKm = vehicleRow ? Number(vehicleRow.depreciationPerKm) : 0;
+  const custoKmCombustivel = preview.costPerKm;
+  const custoKmTotal =
+    preview.totalKm > 0
+      ? custoKmCombustivel + depKm
+      : custoKmCombustivel + depKm;
+
+  const consumoRealKmL =
+    totalLitros > 0 && preview.totalKm > 0
+      ? preview.totalKm / totalLitros
+      : null;
+
+  const currentOdometer = vehicleRow?.currentOdometer ?? null;
+  const manutencaoItens = maintRows.map((row) => {
+    const d = computeMaintenanceDerived(
+      currentOdometer,
+      row.lastServiceKm,
+      row.intervalKm,
+    );
+    const badgeLabel =
+      d.status === "ok"
+        ? "Em dia"
+        : d.status === "warning"
+          ? "Próximo"
+          : "Atrasado";
+    const kmFaltam =
+      d.kmUntilDue !== null ? Math.max(0, d.kmUntilDue) : null;
+    return {
+      nome: row.type,
+      status: d.status,
+      badgeLabel,
+      kmFaltam,
+    };
+  });
+
+  const provisaoPorKm = sumProvisionPerKm(
+    maintRows.map((r) => ({
+      estimatedCost:
+        r.estimatedCost != null ? Number(r.estimatedCost) : null,
+      intervalKm: r.intervalKm,
+    })),
+  );
+
+  const gastoManutencaoMes = expenseRows
+    .filter((e) => e.category === "maintenance")
+    .reduce((s, e) => s + Number(e.amount), 0);
+
+  const daysForMeta =
+    preview.periodMetaDays ??
+    new Date(Date.UTC(preview.year, preview.month, 0)).getUTCDate();
+  const goal = preview.goal;
+  const metaDiaria =
+    goal != null ? goal.monthlyTarget / daysForMeta : null;
+  const atingida = goal != null && goal.earnedTowardGoal >= goal.monthlyTarget;
+  const superouValor =
+    goal != null && atingida
+      ? goal.earnedTowardGoal - goal.monthlyTarget
+      : null;
+  const faltaValor =
+    goal != null && !atingida
+      ? Math.max(0, goal.monthlyTarget - goal.earnedTowardGoal)
+      : null;
+
+  const margemLiquidaPct =
+    preview.gross > 0 ? (preview.netProfit / preview.gross) * 100 : null;
+  const roiOperacionalPct =
+    preview.totalExpenses > 0
+      ? (preview.netProfit / preview.totalExpenses) * 100
+      : null;
+
+  return {
+    preview,
+    vehiclePowertrain,
     hasRides,
     periodoAnterior,
     plataformas,

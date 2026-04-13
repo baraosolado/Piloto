@@ -1,9 +1,12 @@
 import { NextResponse } from "next/server";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
-import { db } from "@/db";
+import { getRequestDb } from "@/db/request-db";
+import { runWithAppUserId } from "@/db/run-with-app-user-id";
 import { maintenanceItems } from "@/db/schema";
-import { getSessionUserId } from "@/lib/api-session";
+import { requireSession } from "@/lib/api-session";
+import { routeUuidParamSchema } from "@/lib/api-query-validators";
+import { logIfMaintenanceOwnedByOtherUser } from "@/lib/cross-tenant-log";
 import { getVehicleForUser } from "@/lib/dashboard-data";
 import { serializeMaintenanceItem } from "@/lib/maintenance-serialize";
 
@@ -39,11 +42,21 @@ export async function PATCH(
   request: Request,
   context: { params: Params },
 ) {
-  const auth = await getSessionUserId();
+  const auth = await requireSession();
   if ("response" in auth) return auth.response;
   const { userId } = auth;
 
   const { id } = await context.params;
+  const idParsed = routeUuidParamSchema.safeParse(id);
+  if (!idParsed.success) {
+    return NextResponse.json(
+      {
+        data: null,
+        error: { code: "VALIDATION", message: "ID inválido." },
+      },
+      { status: 400 },
+    );
+  }
 
   let json: unknown;
   try {
@@ -73,18 +86,20 @@ export async function PATCH(
     );
   }
 
-  const [existing] = await db
+  return runWithAppUserId(userId, async () => {
+  const [existing] = await getRequestDb()
     .select()
     .from(maintenanceItems)
     .where(
       and(
-        eq(maintenanceItems.id, id),
+        eq(maintenanceItems.id, idParsed.data),
         eq(maintenanceItems.userId, userId),
       ),
     )
     .limit(1);
 
   if (!existing) {
+    await logIfMaintenanceOwnedByOtherUser(idParsed.data, userId);
     return NextResponse.json(
       {
         data: null,
@@ -107,12 +122,12 @@ export async function PATCH(
       p.estimatedCost === null ? null : p.estimatedCost.toFixed(2);
   }
 
-  const [updated] = await db
+  const [updated] = await getRequestDb()
     .update(maintenanceItems)
     .set(updatePayload)
     .where(
       and(
-        eq(maintenanceItems.id, id),
+        eq(maintenanceItems.id, idParsed.data),
         eq(maintenanceItems.userId, userId),
       ),
     )
@@ -122,11 +137,22 @@ export async function PATCH(
   const currentOdometer =
     vehicle !== null ? vehicle.currentOdometer : null;
 
+  if (!updated) {
+    return NextResponse.json(
+      {
+        data: null,
+        error: { code: "INTERNAL", message: "Falha ao atualizar." },
+      },
+      { status: 500 },
+    );
+  }
+
   return NextResponse.json({
     data: {
       item: serializeMaintenanceItem(updated, currentOdometer),
     },
     error: null,
+  });
   });
 }
 
@@ -134,23 +160,35 @@ export async function DELETE(
   _request: Request,
   context: { params: Params },
 ) {
-  const auth = await getSessionUserId();
+  const auth = await requireSession();
   if ("response" in auth) return auth.response;
   const { userId } = auth;
 
   const { id } = await context.params;
+  const idParsed = routeUuidParamSchema.safeParse(id);
+  if (!idParsed.success) {
+    return NextResponse.json(
+      {
+        data: null,
+        error: { code: "VALIDATION", message: "ID inválido." },
+      },
+      { status: 400 },
+    );
+  }
 
-  const deleted = await db
+  return runWithAppUserId(userId, async () => {
+  const deleted = await getRequestDb()
     .delete(maintenanceItems)
     .where(
       and(
-        eq(maintenanceItems.id, id),
+        eq(maintenanceItems.id, idParsed.data),
         eq(maintenanceItems.userId, userId),
       ),
     )
     .returning({ id: maintenanceItems.id });
 
   if (deleted.length === 0) {
+    await logIfMaintenanceOwnedByOtherUser(idParsed.data, userId);
     return NextResponse.json(
       {
         data: null,
@@ -161,4 +199,5 @@ export async function DELETE(
   }
 
   return NextResponse.json({ data: { id: deleted[0].id }, error: null });
+  });
 }

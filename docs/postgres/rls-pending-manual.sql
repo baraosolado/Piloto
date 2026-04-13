@@ -1,0 +1,10 @@
+-- Fonte canónica: `src/db/migrations/0008_enable_row_level_security.sql`
+--
+-- Aplicar RLS:
+--   npm run db:migrate
+-- ou (staging/prod com confirmação explícita):
+--   CONFIRM_RLS_APPLY=1 DATABASE_URL=postgresql://... bash scripts/apply-rls.sh
+--
+-- Verificação rápida: DATABASE_URL=... bash scripts/verify-rls.sh
+--
+-- Integração no app: `runWithAppUserId` + `getRequestDb()` (ver SECURITY-GAPS.md).

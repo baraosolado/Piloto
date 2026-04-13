@@ -149,7 +149,7 @@ export function RelatoriosExportButtons({
   const q = `month=${month}&year=${year}`;
 
   const goPlanos = () => {
-    router.push("/planos");
+    router.push("/configuracoes/plano");
   };
 
   const onPdf = async () => {
@@ -160,7 +160,7 @@ export function RelatoriosExportButtons({
     try {
       await downloadBlob(
         `/api/reports/pdf?${q}`,
-        `piloto-relatorio-${year}-${String(month).padStart(2, "0")}.pdf`,
+        `copilote-relatorio-${year}-${String(month).padStart(2, "0")}.pdf`,
       );
       toast.success("PDF baixado.");
     } catch (e) {
@@ -176,7 +176,7 @@ export function RelatoriosExportButtons({
     try {
       await downloadBlob(
         `/api/rides/export?${q}`,
-        `piloto-corridas-${year}-${String(month).padStart(2, "0")}.csv`,
+        `copilote-corridas-${year}-${String(month).padStart(2, "0")}.csv`,
       );
       toast.success("CSV de corridas baixado.");
     } catch (e) {
@@ -194,7 +194,7 @@ export function RelatoriosExportButtons({
     try {
       await downloadBlob(
         `/api/expenses/export?${q}`,
-        `piloto-gastos-${year}-${String(month).padStart(2, "0")}.csv`,
+        `copilote-gastos-${year}-${String(month).padStart(2, "0")}.csv`,
       );
       toast.success("CSV de gastos baixado.");
     } catch (e) {

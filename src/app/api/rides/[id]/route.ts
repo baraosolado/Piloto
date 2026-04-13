@@ -1,14 +1,18 @@
 import { NextResponse } from "next/server";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
-import { db } from "@/db";
+import { getRequestDb } from "@/db/request-db";
+import { runWithAppUserId } from "@/db/run-with-app-user-id";
 import { rides, vehicles } from "@/db/schema";
-import { getSessionUserId } from "@/lib/api-session";
+import { requireSession } from "@/lib/api-session";
+import { routeUuidParamSchema } from "@/lib/api-query-validators";
+import { calculateRideCost, calculateRideProfit } from "@/lib/calculations";
 import {
-  calculateRideCost,
-  calculateRideProfit,
-  type Vehicle,
-} from "@/lib/calculations";
+  consumptionBounds,
+  normalizePowertrain,
+  vehicleFromVehicleRow,
+} from "@/lib/vehicle-powertrain";
+import { logIfRideOwnedByOtherUser } from "@/lib/cross-tenant-log";
 
 const platformSchema = z.enum(["uber", "99", "indrive", "particular"]);
 
@@ -28,6 +32,7 @@ const patchBodySchema = z
     ),
     durationMinutes: z.number().int().positive().nullable().optional(),
     notes: z.string().max(5000).nullable().optional(),
+    fuelConsumption: z.number().min(2).max(30).optional(),
   })
   .refine(
     (o) =>
@@ -36,17 +41,10 @@ const patchBodySchema = z
       o.distanceKm !== undefined ||
       o.startedAt !== undefined ||
       o.durationMinutes !== undefined ||
-      o.notes !== undefined,
+      o.notes !== undefined ||
+      o.fuelConsumption !== undefined,
     { message: "Nenhum campo para atualizar." },
   );
-
-function vehicleRowToCalc(v: typeof vehicles.$inferSelect): Vehicle {
-  return {
-    fuelConsumption: Number(v.fuelConsumption),
-    fuelPrice: Number(v.fuelPrice),
-    depreciationPerKm: Number(v.depreciationPerKm),
-  };
-}
 
 function serializeRide(row: typeof rides.$inferSelect) {
   return {
@@ -67,11 +65,21 @@ export async function PATCH(
   request: Request,
   context: { params: Params },
 ) {
-  const auth = await getSessionUserId();
+  const auth = await requireSession();
   if ("response" in auth) return auth.response;
   const { userId } = auth;
 
   const { id } = await context.params;
+  const idParsed = routeUuidParamSchema.safeParse(id);
+  if (!idParsed.success) {
+    return NextResponse.json(
+      {
+        data: null,
+        error: { code: "VALIDATION", message: "ID inválido." },
+      },
+      { status: 400 },
+    );
+  }
 
   let json: unknown;
   try {
@@ -101,17 +109,19 @@ export async function PATCH(
     );
   }
 
-  const [existing] = await db
+  return runWithAppUserId(userId, async () => {
+  const [existing] = await getRequestDb()
     .select()
     .from(rides)
-    .where(and(eq(rides.id, id), eq(rides.userId, userId)))
+    .where(and(eq(rides.id, idParsed.data), eq(rides.userId, userId)))
     .limit(1);
 
   if (!existing) {
+    await logIfRideOwnedByOtherUser(idParsed.data, userId);
     return NextResponse.json(
       {
         data: null,
-        error: { code: "NOT_FOUND", message: "Corrida não encontrada." },
+        error: { code: "NOT_FOUND", message: "Registro não encontrado." },
       },
       { status: 404 },
     );
@@ -129,13 +139,53 @@ export async function PATCH(
     updatePayload.durationMinutes = p.durationMinutes;
   if (p.notes !== undefined) updatePayload.notes = p.notes;
 
-  const [updated] = await db
-    .update(rides)
-    .set(updatePayload)
-    .where(and(eq(rides.id, id), eq(rides.userId, userId)))
-    .returning();
+  let updated: typeof rides.$inferSelect;
+  if (p.fuelConsumption !== undefined) {
+    const [vehForConsumption] = await getRequestDb()
+      .select()
+      .from(vehicles)
+      .where(eq(vehicles.userId, userId))
+      .limit(1);
+    if (vehForConsumption) {
+      const pt = normalizePowertrain(vehForConsumption.powertrain);
+      const cBounds = consumptionBounds(pt);
+      if (
+        p.fuelConsumption < cBounds.min ||
+        p.fuelConsumption > cBounds.max
+      ) {
+        return NextResponse.json(
+          {
+            data: null,
+            error: {
+              code: "VALIDATION_ERROR",
+              message:
+                pt === "electric"
+                  ? `Consumo entre ${cBounds.min} e ${cBounds.max} km/kWh.`
+                  : `Consumo entre ${cBounds.min} e ${cBounds.max} km/l.`,
+            },
+          },
+          { status: 400 },
+        );
+      }
+    }
+    await getRequestDb()
+      .update(vehicles)
+      .set({ fuelConsumption: p.fuelConsumption.toFixed(2) })
+      .where(eq(vehicles.userId, userId));
+  }
 
-  const [vehicleRow] = await db
+  if (Object.keys(updatePayload).length > 0) {
+    const [row] = await getRequestDb()
+      .update(rides)
+      .set(updatePayload)
+      .where(and(eq(rides.id, idParsed.data), eq(rides.userId, userId)))
+      .returning();
+    updated = row ?? existing;
+  } else {
+    updated = existing;
+  }
+
+  const [vehicleRow] = await getRequestDb()
     .select()
     .from(vehicles)
     .where(eq(vehicles.userId, userId))
@@ -144,7 +194,7 @@ export async function PATCH(
   let rideCost: number | null = null;
   let profit: number | null = null;
   if (vehicleRow) {
-    const v = vehicleRowToCalc(vehicleRow);
+    const v = vehicleFromVehicleRow(vehicleRow);
     const km = Number(updated.distanceKm);
     const gross = Number(updated.grossAmount);
     const c = calculateRideCost(km, v);
@@ -161,32 +211,46 @@ export async function PATCH(
     },
     error: null,
   });
+  });
 }
 
 export async function DELETE(
   _request: Request,
   context: { params: Params },
 ) {
-  const auth = await getSessionUserId();
+  const auth = await requireSession();
   if ("response" in auth) return auth.response;
   const { userId } = auth;
 
   const { id } = await context.params;
-
-  const deleted = await db
-    .delete(rides)
-    .where(and(eq(rides.id, id), eq(rides.userId, userId)))
-    .returning({ id: rides.id });
-
-  if (deleted.length === 0) {
+  const idParsed = routeUuidParamSchema.safeParse(id);
+  if (!idParsed.success) {
     return NextResponse.json(
       {
         data: null,
-        error: { code: "NOT_FOUND", message: "Corrida não encontrada." },
+        error: { code: "VALIDATION", message: "ID inválido." },
+      },
+      { status: 400 },
+    );
+  }
+
+  return runWithAppUserId(userId, async () => {
+  const deleted = await getRequestDb()
+    .delete(rides)
+    .where(and(eq(rides.id, idParsed.data), eq(rides.userId, userId)))
+    .returning({ id: rides.id });
+
+  if (deleted.length === 0) {
+    await logIfRideOwnedByOtherUser(idParsed.data, userId);
+    return NextResponse.json(
+      {
+        data: null,
+        error: { code: "NOT_FOUND", message: "Registro não encontrado." },
       },
       { status: 404 },
     );
   }
 
   return NextResponse.json({ data: { id: deleted[0].id }, error: null });
+  });
 }

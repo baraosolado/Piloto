@@ -2,7 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { CheckCircle2, Loader2, TrendingUp } from "lucide-react";
@@ -11,33 +11,67 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
+import {
+  consumptionBounds,
+  defaultConsumptionStored,
+  fuelPriceBounds,
+  VEHICLE_POWERTRAINS,
+  type VehiclePowertrain,
+} from "@/lib/vehicle-powertrain";
 
 const MAX_YEAR = new Date().getFullYear() + 1;
 
-const schema = z.object({
-  model: z.string().min(1, "Informe o modelo"),
-  year: z.coerce
-    .number({ invalid_type_error: "Informe o ano" })
-    .int()
-    .min(1990)
-    .max(MAX_YEAR),
-  fuelConsumption: z.coerce
-    .number({ invalid_type_error: "Informe o consumo" })
-    .min(3)
-    .max(30),
-  fuelPrice: z.coerce
-    .number({ invalid_type_error: "Informe o preço" })
-    .min(3)
-    .max(15),
-  currentOdometer: z.coerce
-    .number({ invalid_type_error: "Informe o odômetro" })
-    .int()
-    .min(0),
-  depreciationPerKm: z.coerce
-    .number({ invalid_type_error: "Informe a depreciação" })
-    .min(0)
-    .max(5),
-});
+const schema = z
+  .object({
+    model: z.string().min(1, "Informe o modelo"),
+    year: z.coerce
+      .number({ invalid_type_error: "Informe o ano" })
+      .int()
+      .min(1990)
+      .max(MAX_YEAR),
+    powertrain: z.enum(VEHICLE_POWERTRAINS),
+    fuelConsumption: z.coerce
+      .number({ invalid_type_error: "Informe o consumo" }),
+    fuelPrice: z.coerce
+      .number({ invalid_type_error: "Informe o preço" }),
+    currentOdometer: z.coerce
+      .number({ invalid_type_error: "Informe o odômetro" })
+      .int()
+      .min(0),
+    depreciationPerKm: z.coerce
+      .number({ invalid_type_error: "Informe a depreciação" })
+      .min(0)
+      .max(5),
+  })
+  .superRefine((data, ctx) => {
+    const pt = data.powertrain;
+    const pb = fuelPriceBounds(pt);
+    if (!Number.isFinite(data.fuelPrice) || data.fuelPrice < pb.min || data.fuelPrice > pb.max) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["fuelPrice"],
+        message:
+          pt === "electric"
+            ? `Preço da energia entre R$ ${pb.min} e R$ ${pb.max} por kWh.`
+            : `Preço do combustível entre R$ ${pb.min} e R$ ${pb.max} por litro.`,
+      });
+    }
+    const cb = consumptionBounds(pt);
+    if (
+      !Number.isFinite(data.fuelConsumption) ||
+      data.fuelConsumption < cb.min ||
+      data.fuelConsumption > cb.max
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["fuelConsumption"],
+        message:
+          pt === "electric"
+            ? `Consumo entre ${cb.min} e ${cb.max} km/kWh.`
+            : `Consumo entre ${cb.min} e ${cb.max} km/l.`,
+      });
+    }
+  });
 
 export type VeiculoSettingsValues = z.infer<typeof schema>;
 
@@ -46,6 +80,11 @@ const labelClass =
 
 const fieldClass =
   "h-auto rounded-b-lg border-0 border-b-2 border-transparent bg-[#e8e8e8] px-4 py-4 text-base shadow-none transition-colors focus-visible:border-[#006d33] focus-visible:ring-0";
+
+const powertrainLabel: Record<VehiclePowertrain, string> = {
+  combustion: "Combustão (gasolina, etanol, flex, diesel…)",
+  electric: "Elétrico",
+};
 
 type Props = {
   defaultValues: VeiculoSettingsValues;
@@ -62,6 +101,19 @@ export function VeiculoSettingsForm({ defaultValues }: Props) {
   const consumption = form.watch("fuelConsumption");
   const price = form.watch("fuelPrice");
   const dep = form.watch("depreciationPerKm");
+  const powertrain = form.watch("powertrain");
+
+  const prevPowertrain = useRef<VehiclePowertrain | null>(null);
+  useEffect(() => {
+    if (prevPowertrain.current === null) {
+      prevPowertrain.current = powertrain;
+      return;
+    }
+    if (prevPowertrain.current === powertrain) return;
+    prevPowertrain.current = powertrain;
+    form.setValue("fuelConsumption", defaultConsumptionStored(powertrain));
+    form.setValue("fuelPrice", powertrain === "electric" ? 0.89 : 5.89);
+  }, [powertrain, form]);
 
   const totalPerKm = useMemo(() => {
     const c = Number(consumption);
@@ -83,6 +135,7 @@ export function VeiculoSettingsForm({ defaultValues }: Props) {
       body: JSON.stringify({
         model: data.model.trim(),
         year: data.year,
+        powertrain: data.powertrain,
         fuelConsumption: data.fuelConsumption,
         fuelPrice: data.fuelPrice,
         currentOdometer: data.currentOdometer,
@@ -101,12 +154,17 @@ export function VeiculoSettingsForm({ defaultValues }: Props) {
   }
 
   const pending = form.formState.isSubmitting;
+  const isElectric = powertrain === "electric";
 
   return (
     <form onSubmit={form.handleSubmit(onSubmit)} className="mx-auto max-w-lg space-y-6">
+      <input
+        type="hidden"
+        {...form.register("fuelConsumption", { valueAsNumber: true })}
+      />
       <section className="flex flex-col items-center justify-center rounded-xl bg-[#f3f3f3] p-6 text-center">
         <span className="mb-1 text-xs font-medium tracking-widest text-[#474747] uppercase">
-          Custo estimado (combustível + depreciação)
+          Custo estimado (energia + depreciação)
         </span>
         <div className="flex items-baseline gap-1">
           <span className="text-lg font-bold text-black">R$</span>
@@ -128,6 +186,31 @@ export function VeiculoSettingsForm({ defaultValues }: Props) {
 
       <div className="space-y-4">
         <h2 className="text-base font-bold text-black">Informações gerais</h2>
+        <div>
+          <Label className={labelClass}>Tipo de veículo</Label>
+          <div className="flex flex-col gap-2">
+            {VEHICLE_POWERTRAINS.map((value) => (
+              <label
+                key={value}
+                className={cn(
+                  "flex cursor-pointer items-start gap-3 rounded-lg border-2 border-transparent bg-[#e8e8e8] px-3 py-2",
+                  powertrain === value && "border-[#006d33]",
+                )}
+              >
+                <input
+                  type="radio"
+                  value={value}
+                  disabled={pending}
+                  className="mt-1 size-4 accent-[#006d33]"
+                  {...form.register("powertrain")}
+                />
+                <span className="text-sm font-medium text-black">
+                  {powertrainLabel[value]}
+                </span>
+              </label>
+            ))}
+          </div>
+        </div>
         <div>
           <Label htmlFor="vs-model" className={labelClass}>
             Modelo
@@ -179,27 +262,18 @@ export function VeiculoSettingsForm({ defaultValues }: Props) {
       </div>
 
       <div className="space-y-4 pt-2">
-        <h2 className="text-base font-bold text-black">Consumo e custos</h2>
-        <div>
-          <Label htmlFor="vs-cons" className={labelClass}>
-            Consumo médio (km/L)
-          </Label>
-          <Input
-            id="vs-cons"
-            type="number"
-            inputMode="decimal"
-            step="0.1"
-            disabled={pending}
-            className={cn(
-              fieldClass,
-              form.formState.errors.fuelConsumption && "border-b-destructive",
-            )}
-            {...form.register("fuelConsumption")}
-          />
-        </div>
+        <h2 className="text-base font-bold text-black">
+          {isElectric ? "Energia e custos" : "Combustível e custos"}
+        </h2>
+        <p className="text-xs leading-relaxed text-muted-foreground">
+          {isElectric
+            ? "O consumo (km/kWh) é atualizado ao salvar cada resumo do dia em "
+            : "O consumo médio (km/l) é informado ao salvar cada resumo do dia em "}
+          <span className="font-semibold text-foreground">Corridas</span>.
+        </p>
         <div>
           <Label htmlFor="vs-price" className={labelClass}>
-            Preço do combustível (R$/L)
+            {isElectric ? "Preço da energia (R$/kWh)" : "Preço do combustível (R$/L)"}
           </Label>
           <div className="relative">
             <span className="pointer-events-none absolute top-1/2 left-4 z-10 -translate-y-1/2 text-sm font-bold text-[#474747]">
@@ -219,6 +293,11 @@ export function VeiculoSettingsForm({ defaultValues }: Props) {
               {...form.register("fuelPrice")}
             />
           </div>
+          {form.formState.errors.fuelPrice && (
+            <p className="mt-1 text-xs text-destructive">
+              {form.formState.errors.fuelPrice.message}
+            </p>
+          )}
         </div>
         <div className="rounded-r-lg border-l-4 border-black bg-white p-4 shadow-sm">
           <Label htmlFor="vs-dep" className={cn(labelClass, "text-black")}>

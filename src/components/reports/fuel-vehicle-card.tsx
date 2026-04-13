@@ -1,5 +1,10 @@
 import { Badge } from "@/components/ui/badge";
 import { formatBRL, formatDecimal1, formatInt } from "@/lib/format-reports";
+import {
+  consumptionUnitSuffix,
+  fuelVolumeUnitShort,
+  type VehiclePowertrain,
+} from "@/lib/vehicle-powertrain";
 import { cn } from "@/lib/utils";
 
 type MaintItem = {
@@ -21,6 +26,8 @@ function statusBadgeClass(s: MaintItem["status"]) {
 }
 
 type Props = {
+  visual?: "default" | "cockpit";
+  powertrain?: VehiclePowertrain;
   abastecimentos: {
     totalLitros: number;
     totalGasto: number;
@@ -41,17 +48,41 @@ type Props = {
 };
 
 export function FuelVehicleCard(p: Props) {
+  const cockpit = p.visual === "cockpit";
+  const pt = p.powertrain ?? "combustion";
+  const isEv = pt === "electric";
+  const volUnit = fuelVolumeUnitShort(pt);
+  const consUnit = consumptionUnitSuffix(pt);
+
   return (
-    <div className="rounded-lg border border-[#eeeeee] bg-white p-5 shadow-sm">
-      <h3 className="text-sm font-semibold text-black">
-        Combustível e veículo
+    <div
+      className={cn(
+        "p-5 shadow-sm",
+        cockpit
+          ? "rounded-xl bg-white ring-1 ring-black/5"
+          : "rounded-lg border border-[#eeeeee] bg-white",
+      )}
+    >
+      <h3
+        className={cn(
+          "font-semibold text-black",
+          cockpit
+            ? "text-xs font-bold uppercase tracking-[0.12em]"
+            : "text-sm",
+        )}
+      >
+        {isEv ? "Energia e veículo" : "Combustível e veículo"}
       </h3>
+      {cockpit ? <div className="mt-2 h-px w-full bg-[#c6c6c6]" /> : null}
       <div className="mt-4 grid gap-6 lg:grid-cols-3 lg:divide-x lg:divide-[#eeeeee]">
         <div className="space-y-2 text-sm lg:pr-6">
-          <Stat label="Total litros" value={`${formatDecimal1(p.abastecimentos.totalLitros)} L`} />
+          <Stat
+            label={isEv ? `Total (${volUnit})` : "Total litros"}
+            value={`${formatDecimal1(p.abastecimentos.totalLitros)} ${volUnit}`}
+          />
           <Stat label="Total gasto" value={formatBRL(p.abastecimentos.totalGasto)} />
           <Stat
-            label="Preço médio/L"
+            label={isEv ? "Preço médio/kWh" : "Preço médio/L"}
             value={formatBRL(p.abastecimentos.precoMedioLitro)}
           />
           <Stat
@@ -64,12 +95,12 @@ export function FuelVehicleCard(p: Props) {
             label="Consumo real"
             value={
               p.eficienciaVeiculo.consumoRealKmL != null
-                ? `${formatDecimal1(p.eficienciaVeiculo.consumoRealKmL)} km/l`
+                ? `${formatDecimal1(p.eficienciaVeiculo.consumoRealKmL)} ${consUnit}`
                 : "—"
             }
           />
           <Stat
-            label="Custo/km real"
+            label={isEv ? "Custo/km (energia)" : "Custo/km real"}
             value={formatBRL(p.eficienciaVeiculo.custoKmCombustivel)}
           />
           <Stat
