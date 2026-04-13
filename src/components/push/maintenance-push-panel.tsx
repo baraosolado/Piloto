@@ -67,7 +67,11 @@ export function MaintenancePushPanel({ className }: { className?: string }) {
       return;
     }
     if (!status?.serverReady) {
-      toast.error("Servidor sem push configurado (VAPID).");
+      toast.error(
+        process.env.NODE_ENV === "development"
+          ? "Servidor sem push configurado (VAPID)."
+          : "As notificações push não estão disponíveis no momento.",
+      );
       return;
     }
 
@@ -231,30 +235,47 @@ export function MaintenancePushPanel({ className }: { className?: string }) {
   }
 
   if (!status?.serverReady) {
+    const isDev = process.env.NODE_ENV === "development";
     return (
       <div
         className={cn(
-          "rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950",
+          "rounded-xl border px-4 py-3 text-sm",
+          isDev
+            ? "border-amber-200 bg-amber-50 text-amber-950"
+            : "border-border bg-muted/40 text-muted-foreground",
           className,
         )}
       >
-        Notificações push ainda não estão disponíveis: confira no{" "}
-        <code className="rounded bg-amber-100/80 px-1 text-xs">.env.local</code>{" "}
-        as variáveis{" "}
-        <code className="rounded bg-amber-100/80 px-1 text-xs">
-          VAPID_PUBLIC_KEY
-        </code>
-        ,{" "}
-        <code className="rounded bg-amber-100/80 px-1 text-xs">
-          VAPID_PRIVATE_KEY
-        </code>{" "}
-        e{" "}
-        <code className="rounded bg-amber-100/80 px-1 text-xs">
-          VAPID_SUBJECT
-        </code>{" "}
-        (ex. <code className="text-xs">mailto:voce@email.com</code>). Sem espaço
-        ao redor do <code className="text-xs">=</code>. Depois de salvar,{" "}
-        <strong>reinicie o npm run dev</strong>.
+        {isDev ? (
+          <>
+            Notificações push ainda não estão disponíveis: confira no{" "}
+            <code className="rounded bg-amber-100/80 px-1 text-xs">
+              .env.local
+            </code>{" "}
+            as variáveis{" "}
+            <code className="rounded bg-amber-100/80 px-1 text-xs">
+              VAPID_PUBLIC_KEY
+            </code>
+            ,{" "}
+            <code className="rounded bg-amber-100/80 px-1 text-xs">
+              VAPID_PRIVATE_KEY
+            </code>{" "}
+            e{" "}
+            <code className="rounded bg-amber-100/80 px-1 text-xs">
+              VAPID_SUBJECT
+            </code>{" "}
+            (ex. <code className="text-xs">mailto:voce@email.com</code>). Sem
+            espaço ao redor do <code className="text-xs">=</code>. Depois de
+            salvar, <strong>reinicie o npm run dev</strong>.
+          </>
+        ) : (
+          <>
+            As notificações push por lembretes de manutenção ainda não estão
+            ativas neste servidor. O resto do app funciona normalmente; só os
+            alertas no dispositivo não estarão disponíveis até o serviço ser
+            configurado.
+          </>
+        )}
       </div>
     );
   }
