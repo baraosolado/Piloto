@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { isCronAuthorized } from "@/lib/cron-auth";
-import { runDataRetentionCron } from "@/lib/data-retention-cron";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 120;
@@ -9,6 +8,8 @@ export const maxDuration = 120;
  * Cron: anonimização de contas muito antigas sem Premium ativo (LGPD / SECURITY-GAPS §5.11).
  * **Desativado por defeito** — `DATA_RETENTION_CRON_ENABLED=1` em produção.
  * Autorização: igual a `/api/cron/maintenance-push` (Bearer ou `x-cron-secret`).
+ *
+ * `import()` dinâmico: ver comentário em `maintenance-push/route.ts`.
  */
 async function handleCron(request: Request) {
   if (!isCronAuthorized(request)) {
@@ -18,6 +19,7 @@ async function handleCron(request: Request) {
     );
   }
 
+  const { runDataRetentionCron } = await import("@/lib/data-retention-cron");
   const result = await runDataRetentionCron();
   return NextResponse.json({ data: result, error: null });
 }
