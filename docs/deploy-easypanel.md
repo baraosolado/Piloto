@@ -55,6 +55,13 @@ As migrations **não** criam o utilizador `dev@piloto.local` nem senhas de desen
 2. O `docker-entrypoint.sh` corre `drizzle-kit migrate` e, em seguida, `node scripts/bootstrap-super-admin.mjs` **só se** `BOOTSTRAP_SUPER_ADMIN=1`. O script é **idempotente**: se já existir qualquer `users.role = 'super_admin'`, não faz nada.
 3. Após o primeiro login com sucesso, **remover** `BOOTSTRAP_SUPER_ADMIN`, `INITIAL_SUPER_ADMIN_EMAIL` e `INITIAL_SUPER_ADMIN_PASSWORD` do painel (não deixar a senha inicial nas variáveis do serviço).
 
+**Login com “as variáveis do Easypanel” dá erro?**
+
+- Confirme nos **logs do container** na arranque: deve aparecer `Primeiro super_admin criado` (sucesso) ou uma mensagem de erro (e-mail inválido, senha com menos de 12 caracteres, e-mail já registado). Com `set -e`, se o bootstrap falhar o contentor **não** chega a iniciar o Next.
+- Se aparecer `Já existe super_admin — bootstrap ignorado`, as `INITIAL_*` **não** criaram utilizador neste deploy: faça login com a conta `super_admin` que já existe na base (ou use **Recuperar senha** com o e-mail certo).
+- No formulário `/login`, use o **mesmo** e-mail e **mesma** senha que definiu em `INITIAL_*` (sem aspas no painel; evite espaços extra no fim da linha).
+- `INITIAL_SUPER_ADMIN_PASSWORD` precisa de **mínimo 12 caracteres** (regra do script de bootstrap).
+
 **Alterar e-mail e senha depois:** o Better Auth já suporta **recuperação de senha** (`/recuperar-senha`) e **troca de e-mail** com confirmação por link (Resend). Em **Configurações → Perfil** o utilizador altera nome/cidade; e-mail/senha seguem os fluxos do auth (e-mail transacional requer `RESEND_API_KEY` em produção).
 
 **Alternativa manual** (sem variável no container): a partir de uma máquina com `DATABASE_URL`, `npm run db:bootstrap:super-admin` com os mesmos `INITIAL_*` no ambiente ou `.env.local`.

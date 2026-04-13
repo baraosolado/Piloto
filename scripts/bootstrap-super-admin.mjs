@@ -42,11 +42,15 @@ async function main() {
       console.log(
         "[bootstrap-super-admin] Já existe super_admin — bootstrap ignorado (idempotente).",
       );
+      console.log(
+        "[bootstrap-super-admin] As variáveis INITIAL_* não criam utilizador neste caso; faça login com a conta super_admin que já está na base de dados.",
+      );
       return 0;
     }
 
     const emailRaw = process.env.INITIAL_SUPER_ADMIN_EMAIL?.trim();
-    const password = process.env.INITIAL_SUPER_ADMIN_PASSWORD ?? "";
+    /** Trim evita falha de login quando o painel (Easypanel) acrescenta espaço/newline ao valor. */
+    const password = (process.env.INITIAL_SUPER_ADMIN_PASSWORD ?? "").trim();
     const name =
       process.env.INITIAL_SUPER_ADMIN_NAME?.trim() || "Administrador";
 
